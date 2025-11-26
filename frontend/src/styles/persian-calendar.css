@@ -1,0 +1,225 @@
+.persian-calendar {
+  direction: rtl;
+  font-family: 'Vazir', sans-serif;
+}
+
+.react-datepicker {
+  font-family: 'Vazir', sans-serif;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.react-datepicker__header {
+  background-color: #f7fafc;
+  border-bottom: 1px solid #e2e8f0;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.react-datepicker__day-name {
+  color: #4a5568;
+  font-weight: 500;
+  margin: 0.2rem;
+  width: 2rem;
+}
+
+.react-datepicker__day {
+  color: #2d3748;
+  margin: 0.2rem;
+  width: 2rem;
+  line-height: 2rem;
+}
+
+.react-datepicker__day:hover {
+  background-color: #ebf4ff;
+  border-radius: 0.25rem;
+}
+
+.react-datepicker__day--selected {
+  background-color: #4299e1;
+  color: white;
+  border-radius: 0.25rem;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: #ebf4ff;
+  color: #2d3748;
+  border-radius: 0.25rem;
+}
+
+.react-datepicker__time-container {
+  border-right: 1px solid #e2e8f0;
+}
+
+.react-datepicker__time {
+  background-color: #f7fafc;
+}
+
+.react-datepicker__time-box {
+  width: 100px;
+}
+
+.react-datepicker__time-list-item {
+  color: #2d3748;
+  height: 2rem;
+  line-height: 2rem;
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: #ebf4ff;
+}
+
+.react-datepicker__time-list-item--selected {
+  background-color: #4299e1;
+  color: white;
+}
+
+.react-datepicker__navigation {
+  top: 0.5rem;
+}
+
+.react-datepicker__navigation--previous {
+  right: 0.5rem;
+}
+
+.react-datepicker__navigation--next {
+  left: 0.5rem;
+}
+
+.react-datepicker__current-month {
+  color: #2d3748;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.rmdp-container {
+  width: 100%;
+  font-family: 'Vazir', sans-serif;
+}
+
+.rmdp-calendar {
+  width: 100%;
+  direction: rtl;
+}
+
+.rmdp-header {
+  font-size: 1rem;
+  color: #2d3748;
+}
+
+.rmdp-week-day {
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.rmdp-day.rmdp-selected span:not(.highlight) {
+  background-color: #4299e1;
+  color: white;
+}
+
+.rmdp-day.rmdp-today span {
+  background-color: #ebf4ff;
+  color: #2d3748;
+}
+
+.rmdp-day:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover {
+  background-color: #ebf4ff;
+  color: #2d3748;
+}
+
+.rmdp-arrow {
+  border: solid #4a5568;
+  border-width: 0 2px 2px 0;
+}
+
+.rmdp-arrow-container:hover {
+  background-color: #f7fafc;
+}
+
+.rmdp-time-picker {
+  direction: rtl;
+  background-color: #f7fafc;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.rmdp-time-picker input {
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  color: #2d3748;
+  background-color: white;
+  margin: 0 0.25rem;
+  font-family: 'Vazir', sans-serif;
+}
+
+.rmdp-time-picker input:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.rmdp-time-picker .rmdp-am-pm {
+  width: 60px;
+  height: 40px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  color: #2d3748;
+  background-color: white;
+  margin: 0 0.25rem;
+  font-family: 'Vazir', sans-serif;
+  cursor: pointer;
+}
+
+.rmdp-time-picker .rmdp-am-pm:hover {
+  background-color: #ebf4ff;
+}
+
+.rmdp-time-picker .rmdp-am-pm.rmdp-selected {
+  background-color: #4299e1;
+  color: white;
+}
+
+.rmdp-time-picker .rmdp-separator {
+  font-size: 1.5rem;
+  color: #4a5568;
+  margin: 0 0.25rem;
+  font-weight: bold;
+}
+
+.rmdp-time-picker .rmdp-time-picker-title {
+  font-size: 0.875rem;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.highlight-red {
+  color: #e53e3e;
+}
+
+.rmdp-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  color: #2d3748;
+  background-color: white;
+}
+
+.rmdp-input:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+} 
