@@ -115,6 +115,12 @@ const Sidebar = () => {
           href: "/admindashboard",
         },
         {
+          name: "داشبورد KPI",
+          icon: BarChart2,
+          color: "#6366f1",
+          href: "/kpidashboard",
+        },
+        {
           name: "ثبت فرم تصفیه خانه",
           icon: BookOpenCheck,
           color: "#EC4899",

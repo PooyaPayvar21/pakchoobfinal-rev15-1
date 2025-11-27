@@ -23,6 +23,7 @@ import WaterTreatmentDashboard from "./pages/WaterTreatmentDashboard";
 import RCFA from "./pages/RCFA";
 import SubmitPM from "./pages/SubmitPM";
 import PmForms from "./pages/PmForms";
+import KpiDashboard from "./pages/KpiDashboard";
 
 function Logout() {
   localStorage.clear();
@@ -82,6 +83,7 @@ function App() {
           <Route path="/submitpm" element={<SubmitPM />} />
           <Route path="/pmforms" element={<PmForms />} />
           <Route path="/submitform" element={<SubmitForm />} />
+          <Route path="/kpidashboard" element={<KpiDashboard />} />
           <Route path="/pmformsubmit" element={<PmFormSubmit />} />
           <Route path="/logout" element={<Logout />} />
           <Route path="/forms" element={<Forms />} />
