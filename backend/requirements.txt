@@ -7,9 +7,8 @@ PyJWT
 pytz
 sqlparse
 psycopg2-binary
-python-dotenv==1.0.0
+python-dotenv
 channels
 channels-redis
-twilio==8.12.0
 django-jazzmin
 jdatetime
