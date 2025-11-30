@@ -86,6 +86,7 @@ function App() {
 
   return (
     <div
+      key={themeVersion}
       className={`${
         isLight ? "bg-gray-100 text-gray-900" : "bg-gray-950 text-gray-100"
       } min-h-screen`}
