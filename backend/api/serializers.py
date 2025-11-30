@@ -18,6 +18,7 @@ from .models import (
     KPIWorkResponse
 )
 from .models import KPIEntry
+from .models import Notification
 
 
 class KPIWorkSerializer(serializers.ModelSerializer):
@@ -233,4 +234,18 @@ class KPIEntrySerializer(serializers.ModelSerializer):
             "sum_value",
             "created_at",
             "updated_at",
+        ]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "personal_code",
+            "title",
+            "message",
+            "type",
+            "read",
+            "created_at",
         ]

@@ -34,6 +34,7 @@ function KpiDashboard() {
   const [isLoadingFacilityMetrics, setIsLoadingFacilityMetrics] =
     useState(false);
   const [showBarChart, setShowBarChart] = useState(false);
+  const isLight = document.documentElement.classList.contains("light");
 
   // Load facilities and KPI metrics on mount
   useEffect(() => {
@@ -161,10 +162,20 @@ function KpiDashboard() {
           <div className="mt-8 px-4">
             {/* Overall KPI Status */}
             <div className="mb-8" dir="rtl">
-              <h2 className="text-2xl font-bold text-gray-100 mb-4">
+              <h2
+                className={`text-2xl font-bold mb-4 ${
+                  isLight ? "text-gray-900" : "text-gray-100"
+                }`}
+              >
                 وضعیت کل KPI شرکت ها
               </h2>
-              <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
+              <div
+                className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                  isLight
+                    ? "bg-white/90 border-gray-200"
+                    : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
                 {kpiMetrics ? (
                   <div className="flex flex-col items-center">
                     {/* Modern Donut Chart with Center Text */}
@@ -265,7 +276,7 @@ function KpiDashboard() {
                     </div>
 
                     {/* Summary Card with Modern Design */}
-                    <div className="mt-8 w-full max-w-2xl">
+                    {/* <div className="mt-8 w-full max-w-2xl">
                       <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 rounded-2xl p-8 border border-blue-500/50 shadow-xl backdrop-blur-sm">
                         <div className="flex items-center justify-between mb-6">
                           <div>
@@ -305,7 +316,7 @@ function KpiDashboard() {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                 ) : (
                   <div className="text-center text-gray-400 py-20">
@@ -319,12 +330,26 @@ function KpiDashboard() {
             <div>
               {/* Modern Bar Chart for Facilities (toggled by pie chart click) */}
               {showBarChart && (
-                <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-md shadow-2xl rounded-2xl p-8 border border-gray-700/50 mb-8">
+                <div
+                  className={`backdrop-blur-md shadow-2xl rounded-2xl p-8 border mb-8 ${
+                    isLight
+                      ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+                      : "bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700/50"
+                  }`}
+                >
                   <div className="mb-8" dir="rtl">
-                    <h3 className="text-2xl font-bold text-gray-100 mb-2">
+                    <h3
+                      className={`text-2xl font-bold mb-2 ${
+                        isLight ? "text-gray-900" : "text-gray-100"
+                      }`}
+                    >
                       مقایسه KPI شرکت‌ها
                     </h3>
-                    <p className="text-gray-400 text-sm">
+                    <p
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-sm`}
+                    >
                       نمایش تعداد KPI هر شرکت به صورت مقایسه‌ای
                     </p>
                   </div>
@@ -690,11 +715,20 @@ function SectionView({
     <div className="mt-8 px-4">
       <button
         onClick={onBack}
-        className="mb-6 px-4 py-2 bg-gray-700 text-gray-100 rounded-lg hover:bg-gray-600 transition-colors"
+        className={`mb-6 px-4 py-2 rounded-lg transition-colors ${
+          isLight
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+        }`}
       >
         ← برگشت
       </button>
-      <h2 className="text-2xl font-bold text-gray-100 mb-6" dir="rtl">
+      <h2
+        className={`text-2xl font-bold mb-6 ${
+          isLight ? "text-gray-900" : "text-gray-100"
+        }`}
+        dir="rtl"
+      >
         شرکت: {facility}
       </h2>
       {/* Facility-level KPI summary */}
@@ -728,12 +762,24 @@ function SectionView({
       </div> */}
 
       {/* Sections as bar chart instead of grid */}
-      <div className="bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-md shadow-2xl rounded-2xl p-8 border border-gray-700/50 mb-8">
+      <div
+        className={`backdrop-blur-md shadow-2xl rounded-2xl p-8 border mb-8 ${
+          isLight
+            ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+            : "bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700/50"
+        }`}
+      >
         <div className="mb-8" dir="rtl">
-          <h3 className="text-2xl font-bold text-gray-100 mb-2">
+          <h3
+            className={`text-2xl font-bold mb-2 ${
+              isLight ? "text-gray-900" : "text-gray-100"
+            }`}
+          >
             وضعیت KPI به تفکیک بخش‌ها
           </h3>
-          <p className="text-gray-400 text-sm">
+          <p
+            className={`${isLight ? "text-gray-600" : "text-gray-400"} text-sm`}
+          >
             نمایش تعداد KPI هر بخش در شرکت {facility}
           </p>
         </div>
@@ -904,25 +950,51 @@ function SectionDetailView({
     <div className="mt-8 px-4">
       <button
         onClick={onBack}
-        className="mb-6 px-4 py-2 bg-gray-700 text-gray-100 rounded-lg hover:bg-gray-600 transition-colors"
+        className={`mb-6 px-4 py-2 rounded-lg transition-colors ${
+          isLight
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+        }`}
       >
         ← برگشت
       </button>
 
       <div
-        className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700 mb-6"
+        className={`backdrop-blur-md shadow-lg rounded-xl p-6 border mb-6 ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
         dir="rtl"
       >
-        <h2 className="text-2xl font-bold text-gray-100 mb-2">{section}</h2>
-        <p className="text-gray-300">واحد: {facility}</p>
+        <h2
+          className={`text-2xl font-bold mb-2 ${
+            isLight ? "text-gray-900" : "text-gray-100"
+          }`}
+        >
+          {section}
+        </h2>
+        <p className={`${isLight ? "text-gray-700" : "text-gray-300"}`}>
+          واحد: {facility}
+        </p>
       </div>
 
       {/* Section KPI Status */}
       <div
-        className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700 mb-6"
+        className={`backdrop-blur-md shadow-lg rounded-xl p-6 border mb-6 ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
         dir="rtl"
       >
-        <h3 className="text-xl font-semibold text-gray-100 mb-4">وضعیت KPI</h3>
+        <h3
+          className={`text-xl font-semibold mb-4 ${
+            isLight ? "text-gray-900" : "text-gray-100"
+          }`}
+        >
+          وضعیت KPI
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-green-600 bg-opacity-30 rounded-lg p-4 border border-green-500">
             <div className="text-sm text-gray-100 mb-2">KPI انجام شده</div>
@@ -941,10 +1013,18 @@ function SectionDetailView({
 
       {/* Role and Person Selection */}
       <div
-        className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700"
+        className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
         dir="rtl"
       >
-        <h3 className="text-xl font-semibold text-gray-100 mb-6">
+        <h3
+          className={`text-xl font-semibold mb-6 ${
+            isLight ? "text-gray-900" : "text-gray-100"
+          }`}
+        >
           انتخاب نفرات
         </h3>
 
@@ -959,7 +1039,11 @@ function SectionDetailView({
                 onClick={() => handleRoleChange(role)}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   selectedRole === role
-                    ? "bg-green-700 text-white shadow-lg"
+                    ? isLight
+                      ? "bg-blue-600 text-white shadow-lg"
+                      : "bg-green-700 text-white shadow-lg"
+                    : isLight
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
@@ -972,7 +1056,11 @@ function SectionDetailView({
         {/* People List */}
         {selectedRole && (
           <div className="mb-6" dir="rtl">
-            <label className="block text-sm text-gray-200 mb-3 font-semibold">
+            <label
+              className={`block text-sm mb-3 font-semibold ${
+                isLight ? "text-gray-900" : "text-gray-200"
+              }`}
+            >
               نام {selectedRole} را انتخاب کنید
             </label>
             {isLoading ? (
@@ -983,7 +1071,11 @@ function SectionDetailView({
                   <button
                     key={person.id}
                     onClick={() => onSelectPerson(person)}
-                    className="px-4 py-3 rounded-lg font-medium transition-all bg-green-600 text-white hover:bg-green-700"
+                    className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                      isLight
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
                   >
                     {person.username}
                   </button>
@@ -1068,19 +1160,35 @@ function PersonDetailView({ facility, section, person, onBack }) {
     <div className="mt-8 px-4">
       <button
         onClick={onBack}
-        className="mb-6 px-4 py-2 bg-gray-700 text-gray-100 rounded-lg hover:bg-gray-600 transition-colors"
+        className={`mb-6 px-4 py-2 rounded-lg transition-colors ${
+          isLight
+            ? "bg-blue-600 text-white hover:bg-blue-700"
+            : "bg-gray-700 text-gray-100 hover:bg-gray-600"
+        }`}
       >
         ← برگشت
       </button>
       {/* Person Header */}
       <div
-        className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700 mb-6"
+        className={`backdrop-blur-md shadow-lg rounded-xl p-6 border mb-6 ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
         dir="rtl"
       >
-        <h2 className="text-2xl font-bold text-gray-100 mb-4">
+        <h2
+          className={`text-2xl font-bold mb-4 ${
+            isLight ? "text-gray-900" : "text-gray-100"
+          }`}
+        >
           {person.username}
         </h2>
-        <div className="grid grid-cols-2 gap-4 text-gray-300">
+        <div
+          className={`grid grid-cols-2 gap-4 ${
+            isLight ? "text-gray-700" : "text-gray-300"
+          }`}
+        >
           <div>
             <span className="text-sm">واحد:</span> {facility}
           </div>
@@ -1093,10 +1201,18 @@ function PersonDetailView({ facility, section, person, onBack }) {
       {/* Person KPI Metrics */}
       {personMetrics && (
         <div
-          className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700 mb-6"
+          className={`backdrop-blur-md shadow-lg rounded-xl p-6 border mb-6 ${
+            isLight
+              ? "bg-white/90 border-gray-200"
+              : "bg-gray-800/60 border-gray-700"
+          }`}
           dir="rtl"
         >
-          <h3 className="text-xl font-semibold text-gray-100 mb-4">
+          <h3
+            className={`text-xl font-semibold mb-4 ${
+              isLight ? "text-gray-900" : "text-gray-100"
+            }`}
+          >
             کارکرد فرد
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1130,10 +1246,18 @@ function PersonDetailView({ facility, section, person, onBack }) {
 
       {/* Work History */}
       <div
-        className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700"
+        className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
         dir="rtl"
       >
-        <h3 className="text-xl font-semibold text-gray-100 mb-4">
+        <h3
+          className={`text-xl font-semibold mb-4 ${
+            isLight ? "text-gray-900" : "text-gray-100"
+          }`}
+        >
           تاریخچه کار
         </h3>
         {workHistory.length > 0 ? (

@@ -6,9 +6,9 @@ export const ACCESS_TOKEN = "token";
 
 // Get the current hostname and protocol
 const getBaseUrl = () => {
-  // If we're in development, use the Vite environment variable
+  // If we're in development, prefer relative API path so Vite proxy handles it
   if (import.meta.env.DEV) {
-    const devUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api/";
+    const devUrl = import.meta.env.VITE_API_URL || "/api/";
     return devUrl.endsWith("/") ? devUrl : `${devUrl}/`;
   }
   // In production, use the current hostname without port
@@ -59,8 +59,10 @@ api.interceptors.request.use(
       config.headers["X-CSRFToken"] = csrfToken;
     }
 
-    // Add auth token if it exists (except for login request)
-    if (config.url !== "/login/" && config.url !== "/register/") {
+    // Add auth token if it exists (skip for auth endpoints)
+    const urlPath = (config.url || "").replace(/^\/+/, "");
+    const isAuthEndpoint = urlPath === "login/" || urlPath === "register/";
+    if (!isAuthEndpoint) {
       const token = localStorage.getItem("token");
       if (token) {
         config.headers.Authorization = `Token ${token}`;
@@ -153,6 +155,9 @@ export const updateUserAdditionalRoles = (username, additionalRoles) =>
     username,
     additional_roles: additionalRoles,
   });
+
+export const changePassword = (old_password, new_password) =>
+  api.post("/user/change-password/", { old_password, new_password });
 
 // Form workflow endpoints
 export const getForms = () => api.get("/submitform/list/");
@@ -284,3 +289,10 @@ export const sendFormData = (data) => api.post("/forms/send", data);
 export const deleteForm = (pk) => api.delete(`/submitform/delete/${pk}/`);
 export const getUnreadFormsCount = () => api.get("/forms/unread/");
 export const sendReminders = (data) => api.post("/send-reminders/", data);
+
+// Notifications
+export const sendNotification = ({ personal_code, title, message, type }) =>
+  api.post("/notifications/send/", { personal_code, title, message, type });
+
+export const fetchNotifications = (personal_code) =>
+  api.get("/notifications/", { params: { personal_code } });

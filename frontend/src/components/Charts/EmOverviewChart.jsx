@@ -373,6 +373,7 @@ const FormOverviewChart = () => {
       gm: calculateAverage("gm"),
     };
 
+    const isLight = document.documentElement.classList.contains("light");
     return (
       <ResponsiveContainer width={"100%"} height={"100%"}>
         <LineChart
@@ -381,11 +382,11 @@ const FormOverviewChart = () => {
           onMouseLeave={handleMouseLeave}
           margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
         >
-          <CartesianGrid strokeDasharray={"3 3"} stroke="#4b5563" />
+          <CartesianGrid strokeDasharray={"3 3"} stroke={isLight ? "#e5e7eb" : "#4b5563"} />
           <XAxis
             dataKey={"monthName"}
-            stroke="#9ca3af"
-            tick={{ fill: "#e5e7eb", fontSize: 11 }}
+            stroke={isLight ? "#9ca3af" : "#9ca3af"}
+            tick={{ fill: isLight ? "#374151" : "#e5e7eb", fontSize: 11 }}
             interval={0}
             angle={-45}
             textAnchor="end"
@@ -393,8 +394,8 @@ const FormOverviewChart = () => {
             padding={{ left: 10, right: 10 }}
           />
           <YAxis
-            stroke="#9ca3af"
-            tick={{ fill: "#e5e7eb", fontSize: 12 }}
+            stroke={isLight ? "#9ca3af" : "#9ca3af"}
+            tick={{ fill: isLight ? "#374151" : "#e5e7eb", fontSize: 12 }}
             padding={{ top: 20 }}
             tickFormatter={(value) => Math.round(value)}
             domain={[0, "auto"]}
@@ -402,12 +403,12 @@ const FormOverviewChart = () => {
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "rgba(31,41,55,0.8)",
-              borderColor: "#4B5563",
+              backgroundColor: isLight ? "rgba(255,255,255,0.9)" : "rgba(31,41,55,0.8)",
+              borderColor: isLight ? "#e5e7eb" : "#4B5563",
               borderRadius: "4px",
               padding: "8px 12px",
             }}
-            itemStyle={{ color: "#e5e7eB" }}
+            itemStyle={{ color: isLight ? "#374151" : "#e5e7eb" }}
             formatter={(value, name) => [`${value} forms`, name]}
             labelFormatter={(value) => `Month: ${value}`}
           />
@@ -468,13 +469,23 @@ const FormOverviewChart = () => {
 
   return (
     <motion.div
-      className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700"
+      className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+        document.documentElement.classList.contains("light")
+          ? "bg-white/90 border-gray-200"
+          : "bg-gray-800/60 border-gray-700"
+      }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3, duration: 0.5 }}
     >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium text-gray-100">
+        <h2
+          className={`text-lg font-medium ${
+            document.documentElement.classList.contains("light")
+              ? "text-gray-900"
+              : "text-gray-100"
+          }`}
+        >
           Forms Overview by Type
         </h2>
         <div className="flex gap-2">
@@ -483,7 +494,11 @@ const FormOverviewChart = () => {
               key={type}
               className={`text-sm font-medium px-3 py-1 rounded-full transition-all duration-200 hover:opacity-80 ${
                 selectedType === type
-                  ? "ring-2 ring-offset-2 ring-offset-gray-800"
+                  ? `ring-2 ring-offset-2 ${
+                      document.documentElement.classList.contains("light")
+                        ? "ring-offset-white"
+                        : "ring-offset-gray-800"
+                    }`
                   : ""
               }`}
               style={{
@@ -504,7 +519,13 @@ const FormOverviewChart = () => {
         </div>
       </div>
       {activeMonth !== null && (
-        <div className="mb-4 text-sm text-gray-300">
+        <div
+          className={`mb-4 text-sm ${
+            document.documentElement.classList.contains("light")
+              ? "text-gray-700"
+              : "text-gray-300"
+          }`}
+        >
           <span className="font-semibold">{getMonthName(activeMonth)}:</span>{" "}
           {Object.entries(formData.find((d) => d.month === activeMonth) || {})
             .filter(([key]) => ["em", "pm", "cm", "gm"].includes(key))

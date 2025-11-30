@@ -173,6 +173,8 @@ function KPIDataEntry() {
     });
   };
 
+  const isLight = document.documentElement.classList.contains("light");
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"ثبت کار و وظایف"} />
@@ -190,9 +192,12 @@ function KPIDataEntry() {
       <main className="w-full lg:px-8 mb-10" dir="rtl">
         <div className="mt-8 px-4">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Step 1: Select Facility */}
-            <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
-              <h3 className="text-xl font-semibold text-gray-100 mb-4">
+            <div
+              className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+              }`}
+            >
+              <h3 className={`text-xl font-semibold mb-4 ${isLight ? "text-gray-900" : "text-gray-100"}`}>
                 مرحله 1: انتخاب شرکت
               </h3>
               {isLoading ? (
@@ -213,8 +218,12 @@ function KPIDataEntry() {
                       }}
                       className={`px-4 py-3 rounded-lg font-medium transition-all ${
                         selectedFacility === facility
-                          ? "bg-gray-700 text-white shadow-lg"
-                          : "bg-green-800 text-white hover:bg-gray-700"
+                          ? isLight
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : "bg-gray-700 text-white shadow-lg"
+                          : isLight
+                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            : "bg-green-800 text-white hover:bg-gray-700"
                       }`}
                     >
                       {facility}
@@ -224,10 +233,13 @@ function KPIDataEntry() {
               )}
             </div>
 
-            {/* Step 2: Select Section */}
             {selectedFacility && (
-              <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
-                <h3 className="text-xl font-semibold text-gray-100 mb-4">
+              <div
+                className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                  isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
+                <h3 className={`text-xl font-semibold mb-4 ${isLight ? "text-gray-900" : "text-gray-100"}`}>
                   مرحله 2: انتخاب بخش
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -241,8 +253,12 @@ function KPIDataEntry() {
                       }}
                       className={`px-4 py-3 rounded-lg font-medium transition-all ${
                         selectedSection === section
-                          ? "bg-gray-700 text-white shadow-lg"
-                          : "bg-green-800 text-white hover:bg-gray-700"
+                          ? isLight
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : "bg-gray-700 text-white shadow-lg"
+                          : isLight
+                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            : "bg-green-800 text-white hover:bg-gray-700"
                       }`}
                     >
                       {section}
@@ -252,10 +268,13 @@ function KPIDataEntry() {
               </div>
             )}
 
-            {/* Step 3: Select Role */}
             {selectedSection && (
-              <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
-                <h3 className="text-xl font-semibold text-gray-100 mb-4">
+              <div
+                className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                  isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
+                <h3 className={`text-xl font-semibold mb-4 ${isLight ? "text-gray-900" : "text-gray-100"}`}>
                   مرحله 3: انتخاب نقش
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -269,8 +288,12 @@ function KPIDataEntry() {
                       }}
                       className={`px-4 py-3 rounded-lg font-medium transition-all ${
                         selectedRole === role
-                          ? "bg-gray-700 text-white shadow-lg"
-                          : "bg-green-800 text-white hover:bg-gray-700"
+                          ? isLight
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : "bg-gray-700 text-white shadow-lg"
+                          : isLight
+                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            : "bg-green-800 text-white hover:bg-gray-700"
                       }`}
                     >
                       {role}
@@ -280,10 +303,13 @@ function KPIDataEntry() {
               </div>
             )}
 
-            {/* Step 4: Select Person */}
             {selectedRole && people.length > 0 && (
-              <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
-                <h3 className="text-xl font-semibold text-gray-100 mb-4">
+              <div
+                className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                  isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
+                <h3 className={`text-xl font-semibold mb-4 ${isLight ? "text-gray-900" : "text-gray-100"}`}>
                   مرحله 4: انتخاب شخص
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -294,8 +320,12 @@ function KPIDataEntry() {
                       onClick={() => setSelectedPerson(person.username)}
                       className={`px-4 py-3 rounded-lg font-medium transition-all ${
                         selectedPerson === person.username
-                          ? "bg-green-800 text-white shadow-lg"
-                          : "bg-green-800 text-white hover:bg-gray-700"
+                          ? isLight
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : "bg-green-800 text-white shadow-lg"
+                          : isLight
+                            ? "bg-blue-500 text-white hover:bg-blue-600"
+                            : "bg-green-800 text-white hover:bg-gray-700"
                       }`}
                     >
                       {person.username}
@@ -305,36 +335,43 @@ function KPIDataEntry() {
               </div>
             )}
 
-            {/* Step 5: Enter Work Details */}
             {selectedPerson && (
-              <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
-                <h3 className="text-xl font-semibold text-gray-100 mb-4">
+              <div
+                className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                  isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                }`}
+              >
+                <h3 className={`text-xl font-semibold mb-4 ${isLight ? "text-gray-900" : "text-gray-100"}`}>
                   مرحله 5: ورود جزئیات کار
                 </h3>
 
                 {/* Summary of selections */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 p-4 bg-gray-900 bg-opacity-40 rounded-lg">
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 p-4 rounded-lg ${
+                    isLight ? "bg-gray-100" : "bg-gray-900 bg-opacity-40"
+                  }`}
+                >
                   <div>
-                    <span className="text-gray-400 text-sm">واحد:</span>
-                    <p className="text-gray-100 font-semibold">
+                    <span className={`${isLight ? "text-gray-700" : "text-gray-400"} text-sm`}>واحد:</span>
+                    <p className={`${isLight ? "text-gray-900" : "text-gray-100"} font-semibold`}>
                       {selectedFacility}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-sm">بخش:</span>
-                    <p className="text-gray-100 font-semibold">
+                    <span className={`${isLight ? "text-gray-700" : "text-gray-400"} text-sm`}>بخش:</span>
+                    <p className={`${isLight ? "text-gray-900" : "text-gray-100"} font-semibold`}>
                       {selectedSection}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-sm">نقش:</span>
-                    <p className="text-gray-100 font-semibold">
+                    <span className={`${isLight ? "text-gray-700" : "text-gray-400"} text-sm`}>نقش:</span>
+                    <p className={`${isLight ? "text-gray-900" : "text-gray-100"} font-semibold`}>
                       {selectedRole}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-sm">نام:</span>
-                    <p className="text-gray-100 font-semibold">
+                    <span className={`${isLight ? "text-gray-700" : "text-gray-400"} text-sm`}>نام:</span>
+                    <p className={`${isLight ? "text-gray-900" : "text-gray-100"} font-semibold`}>
                       {selectedPerson}
                     </p>
                   </div>
@@ -343,7 +380,7 @@ function KPIDataEntry() {
                 <div className="space-y-4">
                   {/* Task Name */}
                   <div>
-                    <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                    <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                       نام کار *
                     </label>
                     <input
@@ -352,13 +389,15 @@ function KPIDataEntry() {
                       value={formData.taskName}
                       onChange={handleInputChange}
                       placeholder="مثال: بررسی کیفیت محصول"
-                      className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2 focus:border-blue-500 focus:outline-none"
+                      className={`w-full rounded-md p-2 focus:border-blue-500 focus:outline-none border ${
+                        isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                      }`}
                     />
                   </div>
 
                   {/* Description */}
                   <div>
-                    <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                    <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                       توضیحات
                     </label>
                     <textarea
@@ -367,21 +406,25 @@ function KPIDataEntry() {
                       onChange={handleInputChange}
                       placeholder="توضیحات تفصیلی کار..."
                       rows="3"
-                      className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2 focus:border-blue-500 focus:outline-none"
+                      className={`w-full rounded-md p-2 focus:border-blue-500 focus:outline-none border ${
+                        isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                      }`}
                     ></textarea>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Status */}
                     <div>
-                      <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                      <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                         وضعیت *
                       </label>
                       <select
                         name="status"
                         value={formData.status}
                         onChange={handleInputChange}
-                        className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2 focus:border-blue-500 focus:outline-none"
+                        className={`w-full rounded-md p-2 focus:border-blue-500 focus:outline-none border ${
+                          isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                        }`}
                       >
                         <option value="Done">انجام شده</option>
                         <option value="Working">در حال انجام</option>
@@ -391,7 +434,7 @@ function KPIDataEntry() {
 
                     {/* Percentage */}
                     <div>
-                      <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                      <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                         درصد انجام (%)
                       </label>
                       <div className="flex items-center gap-2">
@@ -404,7 +447,7 @@ function KPIDataEntry() {
                           onChange={handleInputChange}
                           className="flex-1"
                         />
-                        <span className="text-gray-100 font-semibold min-w-fit">
+                        <span className={`${isLight ? "text-gray-900" : "text-gray-100"} font-semibold min-w-fit`}>
                           {formData.percentage}%
                         </span>
                       </div>
@@ -413,7 +456,7 @@ function KPIDataEntry() {
 
                   {/* Due Date */}
                   <div>
-                    <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                    <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                       تاریخ مهلت
                     </label>
                     <input
@@ -421,13 +464,15 @@ function KPIDataEntry() {
                       name="dueDate"
                       value={formData.dueDate}
                       onChange={handleInputChange}
-                      className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2 focus:border-blue-500 focus:outline-none"
+                      className={`w-full rounded-md p-2 focus:border-blue-500 focus:outline-none border ${
+                        isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                      }`}
                     />
                   </div>
 
                   {/* Notes */}
                   <div>
-                    <label className="block text-sm text-gray-200 mb-2 font-semibold">
+                    <label className={`block text-sm mb-2 font-semibold ${isLight ? "text-gray-900" : "text-gray-200"}`}>
                       یادداشت ها
                     </label>
                     <textarea
@@ -436,7 +481,9 @@ function KPIDataEntry() {
                       onChange={handleInputChange}
                       placeholder="یادداشت های اضافی..."
                       rows="2"
-                      className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2 focus:border-blue-500 focus:outline-none"
+                      className={`w-full rounded-md p-2 focus:border-blue-500 focus:outline-none border ${
+                        isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                      }`}
                     ></textarea>
                   </div>
                 </div>
@@ -446,7 +493,9 @@ function KPIDataEntry() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                    className={`flex-1 text-white font-semibold py-2 px-4 rounded-lg transition-colors ${
+                      isLight ? "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300" : "bg-green-800 hover:bg-green-700 disabled:bg-gray-600"
+                    }`}
                   >
                     {isSubmitting ? "درحال ثبت..." : "ثبت کار"}
                   </button>

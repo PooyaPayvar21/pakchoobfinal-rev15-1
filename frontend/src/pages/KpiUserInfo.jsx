@@ -122,6 +122,8 @@ const KpiUserInfo = () => {
     }
   };
 
+  const isLight = document.documentElement.classList.contains("light");
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"User Information"} />
@@ -142,19 +144,37 @@ const KpiUserInfo = () => {
         </div>
       ) : (
         <main className="w-full lg:px-8 mb-10 mt-10">
-          <div className="max-w-4xl mx-auto bg-gray-800 rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-6 text-gray-200">
+          <div
+            className={`max-w-4xl mx-auto rounded-lg shadow p-6 ${
+              isLight ? "bg-white" : "bg-gray-800"
+            }`}
+          >
+            <h2
+              className={`text-2xl font-bold mb-6 ${
+                isLight ? "text-gray-900" : "text-gray-200"
+              }`}
+            >
               User Information
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
-              <div className="bg-gray-700 p-4 rounded-lg border border-gray-600">
+              <div
+                className={`p-4 rounded-lg border ${
+                  isLight
+                    ? "bg-gray-100 border-gray-200"
+                    : "bg-gray-700 border-gray-600"
+                }`}
+              >
                 <div
                   dir="rtl"
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
                 >
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Personal Code *
                     </label>
                     <input
@@ -163,12 +183,20 @@ const KpiUserInfo = () => {
                       value={userInfo.personal_code}
                       onChange={handleUserInfoChange}
                       placeholder="Enter personal code"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isLight
+                          ? "border-gray-300"
+                          : "border-gray-600 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Full Name *
                     </label>
                     <input
@@ -177,12 +205,20 @@ const KpiUserInfo = () => {
                       value={userInfo.full_name}
                       onChange={handleUserInfoChange}
                       placeholder="Enter full name"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isLight
+                          ? "border-gray-300"
+                          : "border-gray-600 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Company Name *
                     </label>
                     <input
@@ -191,12 +227,20 @@ const KpiUserInfo = () => {
                       value={userInfo.company_name}
                       onChange={handleUserInfoChange}
                       placeholder="Enter company name"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isLight
+                          ? "border-gray-300"
+                          : "border-gray-600 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Role *
                     </label>
                     <input
@@ -205,12 +249,20 @@ const KpiUserInfo = () => {
                       value={userInfo.role}
                       onChange={handleUserInfoChange}
                       placeholder="Enter role"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isLight
+                          ? "border-gray-300"
+                          : "border-gray-600 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Direct Management
                     </label>
                     <input
@@ -219,12 +271,20 @@ const KpiUserInfo = () => {
                       value={userInfo.direct_management}
                       disabled={true}
                       placeholder="Auto-filled from system"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                      className={`w-full px-4 py-2 border rounded-lg ${
+                        isLight
+                          ? "border-gray-300 bg-gray-100 text-gray-900"
+                          : "border-gray-300 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-1">
+                    <label
+                      className={`block text-sm font-medium mb-1 ${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      }`}
+                    >
                       Department *
                     </label>
                     <input
@@ -233,7 +293,11 @@ const KpiUserInfo = () => {
                       value={userInfo.departman}
                       onChange={handleUserInfoChange}
                       placeholder="Enter department"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isLight
+                          ? "border-gray-300"
+                          : "border-gray-600 bg-gray-800 text-gray-200"
+                      }`}
                     />
                   </div>
                 </div>
@@ -250,7 +314,11 @@ const KpiUserInfo = () => {
                 <button
                   type="button"
                   onClick={() => navigate("/kpidashboard")}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+                  className={`flex-1 text-white font-medium py-2 px-4 rounded-lg transition duration-200 ${
+                    isLight
+                      ? "bg-gray-300 hover:bg-gray-400 text-gray-900"
+                      : "bg-gray-600 hover:bg-gray-700"
+                  }`}
                 >
                   Cancel
                 </button>

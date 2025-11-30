@@ -420,6 +420,8 @@ const KpiWorkResponse = () => {
     });
   });
 
+  const isLight = document.documentElement.classList.contains("light");
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"داشبورد"} />
@@ -435,16 +437,33 @@ const KpiWorkResponse = () => {
         pauseOnHover={true}
       />
       <main className="w-full lg:px-8 mb-10 mt-10">
-        <div className="w-full max-w-full mx-auto bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6 text-gray-200" dir="rtl">
+        <div
+          className={`w-full max-w-full mx-auto rounded-lg shadow p-6 ${
+            isLight ? "bg-white" : "bg-gray-800"
+          }`}
+        >
+          <h2
+            className={`text-2xl font-bold mb-6 ${
+              isLight ? "text-gray-900" : "text-gray-200"
+            }`}
+            dir="rtl"
+          >
             KPI Data Entry
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* User info (single) and editable tasks table */}
-            <div className="bg-gray-700 p-4 rounded-lg border border-gray-600 mb-4">
+            <div
+              className={`p-4 rounded-lg border mb-4 ${
+                isLight ? "bg-gray-100 border-gray-200" : "bg-gray-700 border-gray-600"
+              }`}
+            >
               <div className="flex justify-between items-center mb-4" dir="rtl">
-                <h3 className="text-lg font-semibold text-gray-200">
+                <h3
+                  className={`text-lg font-semibold ${
+                    isLight ? "text-gray-900" : "text-gray-200"
+                  }`}
+                >
                   User Information
                 </h3>
               </div>
@@ -453,7 +472,7 @@ const KpiWorkResponse = () => {
                 dir="rtl"
               >
                 <div>
-                  <label className="text-gray-400 block mb-1">
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>
                     Personal Code
                   </label>
                   <input
@@ -466,11 +485,13 @@ const KpiWorkResponse = () => {
                       }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1">Full Name</label>
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>Full Name</label>
                   <input
                     type="text"
                     value={userInfo.full_name}
@@ -481,11 +502,13 @@ const KpiWorkResponse = () => {
                       }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1">Company</label>
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>Company</label>
                   <input
                     type="text"
                     value={userInfo.company_name}
@@ -496,11 +519,13 @@ const KpiWorkResponse = () => {
                       }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1">Role</label>
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>Role</label>
                   <input
                     type="text"
                     value={userInfo.role}
@@ -508,11 +533,13 @@ const KpiWorkResponse = () => {
                       setUserInfo((prev) => ({ ...prev, role: e.target.value }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1">
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>
                     Direct Management
                   </label>
                   <input
@@ -525,11 +552,13 @@ const KpiWorkResponse = () => {
                       }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 block mb-1">Department</label>
+                  <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>Department</label>
                   <input
                     type="text"
                     value={userInfo.departman}
@@ -540,16 +569,20 @@ const KpiWorkResponse = () => {
                       }))
                     }
                     disabled={true}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    }`}
                   />
                 </div>
               </div>
               <div className="mt-4" dir="rtl">
-                <label className="text-gray-400 block mb-1">Category</label>
+                <label className={`${isLight ? "text-gray-700" : "text-gray-400"} block mb-1`}>Category</label>
                 <select
                   value={category}
                   onChange={handleCategoryChange}
-                  className="w-48 px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                  className={`w-48 px-3 py-2 border border-gray-300 rounded-lg ${
+                    isLight ? "bg-white text-gray-900" : "bg-gray-800 text-gray-200"
+                  }`}
                 >
                   <option value="">Select a category</option>
                   <option value="All">All</option>
@@ -558,12 +591,13 @@ const KpiWorkResponse = () => {
               </div>
             </div>
 
-            <div className="mt-2 overflow-auto border-t border-gray-600 pt-6 text-center">
+            <div className={`mt-2 overflow-auto pt-6 text-center ${isLight ? "border-t border-gray-200" : "border-t border-gray-600"}`}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-center">
-                    <th className="px-2 py-2 text-gray-400">#</th>
-                    <th className="px-2 py-2 text-gray-400">Object Weight</th>
+                    <th className={`px-2 py-2 ${isLight ? "text-gray-600" : "text-gray-400"}`}>#</th
+                  >
+                    <th className={`px-2 py-2 ${isLight ? "text-gray-600" : "text-gray-400"}`}>Object Weight</th>
                     <th className="px-2 py-2 text-gray-400">KPI English</th>
                     <th className="px-2 py-2 text-gray-400">KPI Farsi</th>
                     <th className="px-2 py-2 text-gray-400">KPI Info</th>
@@ -580,7 +614,7 @@ const KpiWorkResponse = () => {
                     <th className="px-2 py-2 text-gray-400">Sum</th>
                     <th className="px-2 py-2 text-gray-400">Actions</th>
                   </tr>
-                  <tr className="text-center bg-gray-900">
+                  <tr className={`text-center ${isLight ? "bg-gray-100" : "bg-gray-900"}`}>
                     <th className="px-2 py-1 text-gray-400"></th>
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
@@ -592,7 +626,9 @@ const KpiWorkResponse = () => {
                               obj_weight: e.target.value,
                             }))
                           }
-                          className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                          className={`w-24 px-2 py-1 border rounded text-xs ${
+                            isLight ? "border-gray-300 bg-white text-gray-900" : "border-gray-600 bg-gray-800 text-gray-200"
+                          }`}
                         >
                           <option value="">All</option>
                           {uniqueValues.obj_weight.map((v) => (
@@ -609,7 +645,7 @@ const KpiWorkResponse = () => {
                               obj_weight: "",
                             }))
                           }
-                          className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                          className={`${isLight ? "text-gray-500 hover:text-gray-700" : "text-gray-400 hover:text-gray-200"} text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110`}
                         >
                           ×
                         </button>

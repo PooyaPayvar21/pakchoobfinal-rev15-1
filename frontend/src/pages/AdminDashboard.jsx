@@ -1,9 +1,7 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import Header from "../components/Common/Header";
-import StatCard from "../components/Common/StatCard";
-import EmOverviewChart from "../components/Charts/EmOverviewChart";
-import FormOverviewPieChart from "../components/Charts/FormOverviewPieChart";
+
 import FormOverviewBarChart from "../components/Charts/FormOverviewBarChart";
 import { motion } from "framer-motion";
 import { Zap, Loader } from "lucide-react";
@@ -19,6 +17,7 @@ const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const isLight = document.documentElement.classList.contains("light");
 
   // Add a useEffect to log state changes
   useEffect(() => {
@@ -276,11 +275,32 @@ const AdminDashboard = () => {
         >
           {renderStatCards()}
         </motion.div>
-        {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <EmOverviewChart />
-          <FormOverviewPieChart />
-          <div className="mb-24 md:mb-0">
+          <div
+            className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+              isLight
+                ? "bg-white/90 border-gray-200"
+                : "bg-gray-800/60 border-gray-700"
+            }`}
+          >
+            <EmOverviewChart />
+          </div>
+          <div
+            className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+              isLight
+                ? "bg-white/90 border-gray-200"
+                : "bg-gray-800/60 border-gray-700"
+            }`}
+          >
+            <FormOverviewPieChart />
+          </div>
+          <div
+            className={`mb-24 md:mb-0 backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+              isLight
+                ? "bg-white/90 border-gray-200"
+                : "bg-gray-800/60 border-gray-700"
+            }`}
+          >
             <FormOverviewBarChart />
           </div>
         </div>

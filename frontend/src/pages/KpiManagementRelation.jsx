@@ -42,6 +42,8 @@ const KpiManagementRelation = () => {
     }
   };
 
+  const isLight = document.documentElement.classList.contains("light");
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"ارتباط نقش و مدیریت مستقیم"} />
@@ -49,20 +51,28 @@ const KpiManagementRelation = () => {
       <main className="w-full lg:px-8 mb-10" dir="rtl">
         <div className="mt-8 px-4">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
+            <div
+              className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+                isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+              }`}
+            >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-200 mb-2">نام و نام خانوادگی</label>
+                  <label className={`block text-sm mb-2 ${isLight ? "text-gray-900" : "text-gray-200"}`}>نام و نام خانوادگی</label>
                   <input
                     value={nameFilter}
                     onChange={(e) => setNameFilter(e.target.value)}
                     placeholder="جستجو نام"
-                    className="w-full mb-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full mb-2 rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   />
                   <select
                     value={selectedFullName}
                     onChange={(e) => setSelectedFullName(e.target.value)}
-                    className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   >
                     <option value="">انتخاب پرسنل</option>
                     {options.full_names
@@ -73,17 +83,21 @@ const KpiManagementRelation = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-200 mb-2">مدیر مستقیم</label>
+                  <label className={`block text-sm mb-2 ${isLight ? "text-gray-900" : "text-gray-200"}`}>مدیر مستقیم</label>
                   <input
                     value={directFilter}
                     onChange={(e) => setDirectFilter(e.target.value)}
                     placeholder="جستجو مدیر"
-                    className="w-full mb-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full mb-2 rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   />
                   <select
                     value={selectedDirectManagement}
                     onChange={(e) => setSelectedDirectManagement(e.target.value)}
-                    className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   >
                     <option value="">انتخاب مدیر مستقیم</option>
                     {options.direct_managements
@@ -94,17 +108,21 @@ const KpiManagementRelation = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-200 mb-2">نقش</label>
+                  <label className={`block text-sm mb-2 ${isLight ? "text-gray-900" : "text-gray-200"}`}>نقش</label>
                   <input
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value)}
                     placeholder="جستجو نقش"
-                    className="w-full mb-2 rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full mb-2 rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   />
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
-                    className="w-full rounded-md bg-gray-700 text-gray-100 border border-gray-600 p-2"
+                    className={`w-full rounded-md p-2 border ${
+                      isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-700 text-gray-100 border-gray-600"
+                    }`}
                   >
                     <option value="">انتخاب نقش</option>
                     {options.roles

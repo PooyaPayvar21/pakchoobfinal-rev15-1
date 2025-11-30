@@ -4,14 +4,14 @@ import Header from "../components/Common/Header";
 import { kpiApi } from "../services/kpiApi";
 
 const KpiManagerReview = () => {
-  const [managerName, setManagerName] = useState(() => {
+  const managerName = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
       return info.full_name || "";
-    } catch (_) {
+    } catch {
       return "";
     }
-  });
+  }, []);
   const [category, setCategory] = useState("All");
   const [entries, setEntries] = useState([]);
   const [filters, setFilters] = useState({
@@ -28,26 +28,18 @@ const KpiManagerReview = () => {
     Type: "",
     Sum: "",
   });
-  const [options, setOptions] = useState({ direct_managements: [] });
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-  const [managerDepartman, setManagerDepartman] = useState(() => {
+  const managerDepartman = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
       return info.departman || "";
-    } catch (_) {
+    } catch {
       return "";
     }
-  });
-
-  useEffect(() => {
-    kpiApi
-      .fetchKPIEntryOptions()
-      .then((data) =>
-        setOptions({ direct_managements: data.direct_managements || [] })
-      )
-      .catch(() => {});
   }, []);
+
+  // remove unused options fetch
 
   const round2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
   const formatPercent = (value) => {
@@ -127,17 +119,21 @@ const KpiManagerReview = () => {
         KPI_Achievement: t.kpi_achievement || "",
         Percentage_Achievement: t.score_achievement_alt || 0,
         Score_Achievement: t.score_achievement || 0,
-        Type: t.entry_type || "",
+        Type: t.entry_type === "Editable" ? "" : t.entry_type || "",
         // اگر نوع ردیف "Confirmed" باشد، همیشه Status هم "Confirmed" می‌ماند
         Status:
-          t.entry_type === "Confirmed" ? "Confirmed" : t.manager_status || "",
+          t.entry_type === "Confirmed"
+            ? "Confirmed"
+            : t.entry_type === "Editable"
+            ? "Editable"
+            : t.manager_status || "",
         Sum: t.sum_value || "",
         personal_code: t.personal_code || "",
         full_name: t.full_name || "",
       }));
       setEntries(mapped);
       setCurrentPage(1);
-    } catch (e) {
+    } catch {
       toast.error("خطا در دریافت داده ها");
     }
   };
@@ -179,12 +175,12 @@ const KpiManagerReview = () => {
         manager_status: row.Status,
         sum_value: row.Sum,
       };
-      const res = await kpiApi.updateKPIEntryRow(row.row, payload);
+      await kpiApi.updateKPIEntryRow(row.row, payload);
       toast.success("ذخیره شد");
       setEntries((prev) =>
         prev.map((r) => (r.id === row.id ? { ...r, _dirty: false } : r))
       );
-    } catch (e) {
+    } catch {
       toast.error("خطا در ذخیره");
     }
   };
@@ -196,7 +192,7 @@ const KpiManagerReview = () => {
       setEntries((prev) =>
         prev.map((r) => (r.id === row.id ? { ...r, Status: "Confirmed" } : r))
       );
-    } catch (e) {
+    } catch {
       toast.error("خطا در تایید");
     }
   };
@@ -206,7 +202,7 @@ const KpiManagerReview = () => {
       await kpiApi.deleteKPIEntryRow(rowId);
       toast.success("حذف شد");
       setEntries((prev) => prev.filter((r) => r.row !== rowId));
-    } catch (e) {
+    } catch {
       toast.error("خطا در حذف");
     }
   };
@@ -293,9 +289,10 @@ const KpiManagerReview = () => {
           )
         );
       }
-    } catch (e) {
+    } catch {
+      const wasEditable = currentStatus === "Editable";
       toast.error(
-        isEditable ? "خطا در گرفتن اجازه ویرایش" : "خطا در دادن اجازه ویرایش"
+        wasEditable ? "خطا در گرفتن اجازه ویرایش" : "خطا در دادن اجازه ویرایش"
       );
     }
   };
@@ -465,32 +462,42 @@ const KpiManagerReview = () => {
     [entries, filters]
   );
 
+  const isLight = document.documentElement.classList.contains("light");
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"بازبینی مدیر مستقیم KPI"} />
       <ToastContainer position="top-center" autoClose={1500} rtl={true} />
       <main className="w-full lg:px-8 mb-10" dir="rtl">
         <div className="mt-8 px-4">
-          <div className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700">
+          <div
+            className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+              isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+            }`}
+          >
             <div
               className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm"
               dir="rtl"
             >
               <div>
-                <label className="text-gray-400 block mb-1">مدیر مستقیم</label>
+                <label className={`${isLight ? "text-gray-600" : "text-gray-400"} block mb-1`}>مدیر مستقیم</label>
                 <input
                   type="text"
                   value={managerName}
                   disabled={true}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                  }`}
                 />
               </div>
               <div>
-                <label className="text-gray-400 block mb-1">دسته بندی</label>
+                <label className={`${isLight ? "text-gray-600" : "text-gray-400"} block mb-1`}>دسته بندی</label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-48 px-3 py-2 border border-gray-300 rounded-lg bg-gray-800 text-gray-200"
+                  className={`w-48 px-3 py-2 border border-gray-300 rounded-lg ${
+                    isLight ? "bg-white text-gray-900" : "bg-gray-800 text-gray-200"
+                  }`}
                 >
                   <option value="All">همه</option>
                   <option value="MainTasks">Main Tasks</option>
@@ -503,7 +510,7 @@ const KpiManagerReview = () => {
           {uniqueUsers.length > 0 && (
             <div className="mt-6 mb-6">
               <h3
-                className="text-lg font-semibold text-gray-200 mb-4"
+                className={`text-lg font-semibold ${isLight ? "text-gray-900" : "text-gray-200"} mb-4`}
                 dir="rtl"
               >
                 کاربران
@@ -512,32 +519,34 @@ const KpiManagerReview = () => {
                 {uniqueUsers.map((user) => (
                   <div
                     key={`${user.personal_code}_${user.full_name}`}
-                    className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-4 border border-gray-700"
+                    className={`backdrop-blur-md shadow-lg rounded-xl p-4 border ${
+                      isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                    }`}
                     dir="rtl"
                   >
                     <div className="flex flex-col space-y-3">
                       <div>
-                        <h4 className="text-gray-300 font-medium text-sm mb-1">
+                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
                           نام و نام خانوادگی
                         </h4>
-                        <p className="text-gray-200 font-semibold">
+                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"} font-semibold`}>
                           {user.full_name}
                         </p>
                       </div>
                       <div>
-                        <h4 className="text-gray-300 font-medium text-sm mb-1">
+                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
                           کد پرسنلی
                         </h4>
-                        <p className="text-gray-200">{user.personal_code}</p>
+                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"}`}>{user.personal_code}</p>
                       </div>
                       <div>
-                        <h4 className="text-gray-300 font-medium text-sm mb-1">
+                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
                           تعداد ردیف‌ها
                         </h4>
-                        <p className="text-gray-200">{user.entry_count} ردیف</p>
+                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"}`}>{user.entry_count} ردیف</p>
                       </div>
                       <div className="flex items-center justify-between pt-2">
-                        <span className="text-gray-300 text-sm font-medium">
+                        <span className={`${isLight ? "text-gray-700" : "text-gray-300"} text-sm font-medium`}>
                           اجازه ویرایش
                         </span>
                         <div className="relative group">
@@ -575,7 +584,11 @@ const KpiManagerReview = () => {
                             ></div>
                           </label>
                           {user.has_confirmed_works && (
-                            <div className="absolute z-10 invisible group-hover:visible w-48 bg-gray-800 text-white text-xs rounded p-2 -left-4 -top-10 transform -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            <div
+                              className={`absolute z-10 invisible group-hover:visible w-48 text-xs rounded p-2 -left-4 -top-10 transform -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
+                                isLight ? "bg-white text-gray-900 shadow border border-gray-200" : "bg-gray-800 text-white"
+                              }`}
+                            >
                               کاربر دارای کارهای تایید شده است و امکان تغییر
                               وضعیت وجود ندارد
                             </div>
@@ -589,7 +602,7 @@ const KpiManagerReview = () => {
             </div>
           )}
 
-          <div className="mt-6 overflow-auto border-t border-gray-600 pt-6 text-center ">
+          <div className={`mt-6 overflow-auto pt-6 text-center ${isLight ? "border-t border-gray-200" : "border-t border-gray-600"}`}>
             <table className="w-full text-sm mb-5">
               <thead>
                 <tr className="text-center">
@@ -1298,6 +1311,7 @@ const KpiManagerReview = () => {
                                   manager_departman: info.departman || "",
                                 });
                                 toast.success("اجازه ویرایش داده شد");
+                                // Notification is created by backend in kpientry_grant_edit
                                 setEntries((prev) =>
                                   prev.map((r) =>
                                     r.id === row.id && r.Status !== "Confirmed"

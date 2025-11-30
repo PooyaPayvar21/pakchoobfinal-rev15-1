@@ -1039,3 +1039,20 @@ class KPIEntry(models.Model):
 
     def __str__(self):
         return f"{self.row} - {self.company_name} - {self.full_name}"
+
+
+class Notification(models.Model):
+    personal_code = models.CharField(max_length=50, db_index=True)
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+    type = models.CharField(max_length=100, blank=True, default="info")
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Notification"
+        verbose_name_plural = "Notifications"
+
+    def __str__(self):
+        return f"{self.personal_code} - {self.title}"

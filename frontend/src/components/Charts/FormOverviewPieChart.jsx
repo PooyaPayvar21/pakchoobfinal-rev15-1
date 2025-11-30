@@ -356,14 +356,24 @@ const FormOverviewChart = () => {
               FORM_TYPE_LABELS[name] || name,
             ]}
             contentStyle={{
-              backgroundColor: "rgba(31,41,55,0.8)",
-              borderColor: "#4b5563",
+              backgroundColor: document.documentElement.classList.contains("light")
+                ? "rgba(255,255,255,0.95)"
+                : "rgba(31,41,55,0.8)",
+              borderColor: document.documentElement.classList.contains("light")
+                ? "#e5e7eb"
+                : "#4b5563",
               borderRadius: "4px",
               padding: "8px 12px",
             }}
-            itemStyle={{ color: "#e5e7eb" }}
+            itemStyle={{
+              color: document.documentElement.classList.contains("light")
+                ? "#374151"
+                : "#e5e7eb",
+            }}
             labelStyle={{
-              color: "#e5e7eb",
+              color: document.documentElement.classList.contains("light")
+                ? "#111827"
+                : "#e5e7eb",
               fontWeight: "bold",
               marginBottom: "4px",
             }}
@@ -380,12 +390,24 @@ const FormOverviewChart = () => {
 
   return (
     <motion.div
-      className="bg-gray-800 bg-opacity-50 backdrop-blur-md shadow-lg rounded-xl p-6 border border-gray-700"
+      className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
+        document.documentElement.classList.contains("light")
+          ? "bg-white/90 border-gray-200"
+          : "bg-gray-800/60 border-gray-700"
+      }`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3, duration: 0.5 }}
     >
-      <h2 className="text-lg font-medium mb-4 text-gray-100">Forms Overview</h2>
+      <h2
+        className={`text-lg font-medium mb-4 ${
+          document.documentElement.classList.contains("light")
+            ? "text-gray-900"
+            : "text-gray-100"
+        }`}
+      >
+        Forms Overview
+      </h2>
       {activeIndex !== null && formData[activeIndex] && (
         <div className="mb-4 text-sm text-gray-300">
           <span className="font-semibold">

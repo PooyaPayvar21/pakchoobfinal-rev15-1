@@ -53,6 +53,7 @@ from .serializers import (
 )
 
 from .serializers import KPIEntrySerializer
+from .serializers import NotificationSerializer
 
 from django.db import models
 from django.db.models import Q
@@ -73,6 +74,7 @@ from .models import (
     KPIWorkResponse
 )
 from .models import KPIEntry
+from .models import Notification
 SECTION_CODES = {
     # MDF-2
     "Chipper": "01",
@@ -1079,6 +1081,17 @@ def kpientry_grant_edit(request):
         if manager_departman:
             qs = qs.filter(departman=manager_departman)
         updated = qs.update(entry_type='Editable')
+        try:
+            if updated > 0:
+                Notification.objects.create(
+                    personal_code=personal_code,
+                    title="اعطای مجوز ویرایش",
+                    message=f"مجوز ویرایش برای دسته {category or 'All'} به شما داده شد",
+                    type="kpi_edit_granted",
+                )
+            
+        except Exception:
+            pass
         return Response({"status": "success", "updated": updated})
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1098,6 +1111,16 @@ def kpientry_revoke_edit(request):
         if manager_departman:
             qs = qs.filter(departman=manager_departman)
         updated = qs.update(entry_type='')
+        try:
+            if updated > 0:
+                Notification.objects.create(
+                    personal_code=personal_code,
+                    title="لغو مجوز ویرایش",
+                    message=f"مجوز ویرایش برای دسته {category or 'All'} لغو شد",
+                    type="kpi_edit_revoked",
+                )
+        except Exception:
+            pass
         return Response({"status": "success", "updated": updated})
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -2773,6 +2796,46 @@ def register_view(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    try:
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response(
+                {"status": "error", "message": "old_password and new_password are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+        if not user.check_password(old_password):
+            return Response(
+                {"status": "error", "message": "Current password is incorrect"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_password) < 3:
+            return Response(
+                {"status": "error", "message": "New password must be at least 6 characters"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        try:
+            Token.objects.filter(user=user).delete()
+        except Exception:
+            pass
+
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({"status": "success", "token": token.key})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SubmitFormViewSet(viewsets.ModelViewSet):
     queryset = SubmitForm.objects.all()
@@ -4761,3 +4824,36 @@ def update_kpi_work_status(request, kpi_work_id):
             {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def notifications_list(request):
+    try:
+        personal_code = request.query_params.get("personal_code")
+        if not personal_code:
+            return Response({"notifications": []})
+        qs = Notification.objects.filter(personal_code=personal_code).order_by("-created_at")
+        serializer = NotificationSerializer(qs, many=True)
+        return Response({"notifications": serializer.data})
+    except Exception as e:
+        return Response({"notifications": []})
+
+@api_view(["POST"]) 
+@permission_classes([IsAuthenticated])
+def send_notification(request):
+    try:
+        personal_code = request.data.get("personal_code")
+        title = request.data.get("title")
+        message = request.data.get("message", "")
+        ntype = request.data.get("type", "info")
+        if not personal_code or not title:
+            return Response({"status": "error", "message": "personal_code and title are required"}, status=status.HTTP_400_BAD_REQUEST)
+        n = Notification.objects.create(
+            personal_code=personal_code,
+            title=title,
+            message=message,
+            type=ntype,
+        )
+        return Response({"status": "success", "id": n.id})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

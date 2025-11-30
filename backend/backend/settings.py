@@ -33,8 +33,12 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://planningmaintenance.ir",
     "https://www.planningmaintenance.ir",
+    "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:8000",
 ]
 
 # CORS Settings
@@ -47,7 +51,11 @@ CORS_ALLOWED_ORIGINS = [
     "https://planningmaintenance.ir",
     "https://www.planningmaintenance.ir",
     "http://localhost:3001",
+    "http://localhost:3000",
     "http://localhost:8000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
 ]
 
 CORS_ALLOW_HEADERS = [

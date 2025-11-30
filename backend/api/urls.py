@@ -25,6 +25,7 @@ from .views import (
     get_forms_by_role,
     update_form_status,
     get_user_info,
+    change_password_view,
     get_form_permissions,
     update_endtime,
     get_unread_forms_count,
@@ -65,6 +66,8 @@ from .views import (
     kpientry_confirm_row,
     kpientry_grant_edit,
     kpientry_revoke_edit,
+    notifications_list,
+    send_notification,
 )
 # Create a router for ViewSets
 router = DefaultRouter()
@@ -89,6 +92,7 @@ urlpatterns = [
     path("login/", login_view, name="login"),
     path("register/", register_view, name="register"),
     path("user/info/", get_user_info, name="user-info"),
+    path("user/change-password/", change_password_view, name="change-password"),
     path(
         "user/update-additional-roles/",
         update_user_additional_roles,
@@ -217,4 +221,7 @@ urlpatterns = [
     path("kpi/assigned/", get_assigned_kpi_works, name="kpi-assigned-works"),
     path("kpi/response/", submit_kpi_work_response, name="kpi-submit-response"),
     path("kpi/response/<int:kpi_work_id>/", get_work_responses, name="kpi-work-responses"),
+    # Notifications
+    path("notifications/", notifications_list, name="notifications-list"),
+    path("notifications/send/", send_notification, name="notifications-send"),
 ]
