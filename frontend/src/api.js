@@ -6,7 +6,7 @@ export const ACCESS_TOKEN = "token";
 
 // Get the current hostname and protocol
 const getBaseUrl = () => {
-  // If we're in development, prefer relative API path so Vite proxy handles it
+  // In development, prefer proxy path unless overridden by VITE_API_URL
   if (import.meta.env.DEV) {
     const devUrl = import.meta.env.VITE_API_URL || "/api/";
     return devUrl.endsWith("/") ? devUrl : `${devUrl}/`;
@@ -139,6 +139,47 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Add a request interceptor to include the auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add a response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Handle unauthorized access
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Helper function to fetch notifications
+export const fetchNotifications = async (personal_code = null) => {
+  try {
+    const url = personal_code
+      ? `/notifications/?personal_code=${encodeURIComponent(personal_code)}`
+      : "/notifications/";
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    throw error;
+  }
+};
 
 // Auth endpoints
 export const login = (username, password) =>
@@ -293,6 +334,3 @@ export const sendReminders = (data) => api.post("/send-reminders/", data);
 // Notifications
 export const sendNotification = ({ personal_code, title, message, type }) =>
   api.post("/notifications/send/", { personal_code, title, message, type });
-
-export const fetchNotifications = (personal_code) =>
-  api.get("/notifications/", { params: { personal_code } });

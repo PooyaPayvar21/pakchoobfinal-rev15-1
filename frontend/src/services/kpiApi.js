@@ -1,10 +1,10 @@
 import axios from "axios";
 
-// Base API URL - use Vite env var if available, fall back to CRA-style or hardcoded
-const API_BASE_URL =
+// Base API URL - use Vite env var if available, fall back to the same backend as main API
+const API_BASE_URL = 
   process.env.VITE_API_URL ||
   process.env.REACT_APP_API_URL ||
-  "http://localhost:3001/api";
+  "/api"; // This will use the same backend as the main API
 
 // Create axios instance with default headers
 const apiClient = axios.create({

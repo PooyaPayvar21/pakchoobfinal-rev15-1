@@ -241,11 +241,22 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = [
-            "id",
-            "personal_code",
-            "title",
-            "message",
-            "type",
-            "read",
-            "created_at",
+            'id',
+            'personal_code',
+            'title',
+            'message',
+            'type',
+            'is_read',
+            'created_at',
+            'read_at'
         ]
+        read_only_fields = ('created_at', 'read_at', 'is_read')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Format datetime fields
+        if instance.created_at:
+            data['created_at'] = instance.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        if instance.read_at:
+            data['read_at'] = instance.read_at.strftime('%Y-%m-%d %H:%M:%S')
+        return data

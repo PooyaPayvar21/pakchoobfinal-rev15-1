@@ -66,8 +66,6 @@ from .views import (
     kpientry_confirm_row,
     kpientry_grant_edit,
     kpientry_revoke_edit,
-    notifications_list,
-    send_notification,
 )
 # Create a router for ViewSets
 router = DefaultRouter()
@@ -221,7 +219,5 @@ urlpatterns = [
     path("kpi/assigned/", get_assigned_kpi_works, name="kpi-assigned-works"),
     path("kpi/response/", submit_kpi_work_response, name="kpi-submit-response"),
     path("kpi/response/<int:kpi_work_id>/", get_work_responses, name="kpi-work-responses"),
-    # Notifications
-    path("notifications/", notifications_list, name="notifications-list"),
-    path("notifications/send/", send_notification, name="notifications-send"),
+    # Notifications removed
 ]

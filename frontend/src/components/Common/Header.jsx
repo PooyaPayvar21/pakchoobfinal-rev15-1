@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNotifications } from "../../contexts/NotificationsContext";
 import { Bell, Sparkles, Sun, Moon } from "lucide-react";
 
@@ -29,6 +29,12 @@ function Header({ title }) {
   };
 
   const recent = notifications.slice(0, 5);
+
+  useEffect(() => {
+    const sync = (e) => setIsLight(e?.detail === "light");
+    window.addEventListener("theme-change", sync);
+    return () => window.removeEventListener("theme-change", sync);
+  }, []);
 
   return (
     <header

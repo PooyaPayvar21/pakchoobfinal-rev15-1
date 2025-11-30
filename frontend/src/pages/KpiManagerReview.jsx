@@ -472,7 +472,9 @@ const KpiManagerReview = () => {
         <div className="mt-8 px-4">
           <div
             className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
-              isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+              isLight
+                ? "bg-white/90 border-gray-200"
+                : "bg-gray-800/60 border-gray-700"
             }`}
           >
             <div
@@ -480,23 +482,39 @@ const KpiManagerReview = () => {
               dir="rtl"
             >
               <div>
-                <label className={`${isLight ? "text-gray-600" : "text-gray-400"} block mb-1`}>مدیر مستقیم</label>
+                <label
+                  className={`${
+                    isLight ? "text-gray-600" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  مدیر مستقیم
+                </label>
                 <input
                   type="text"
                   value={managerName}
                   disabled={true}
                   className={`w-full px-3 py-2 border rounded-lg ${
-                    isLight ? "bg-white text-gray-900 border-gray-300" : "bg-gray-800 text-gray-200 border-gray-300"
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-800 text-gray-200 border-gray-300"
                   }`}
                 />
               </div>
               <div>
-                <label className={`${isLight ? "text-gray-600" : "text-gray-400"} block mb-1`}>دسته بندی</label>
+                <label
+                  className={`${
+                    isLight ? "text-gray-600" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  دسته بندی
+                </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className={`w-48 px-3 py-2 border border-gray-300 rounded-lg ${
-                    isLight ? "bg-white text-gray-900" : "bg-gray-800 text-gray-200"
+                    isLight
+                      ? "bg-white text-gray-900"
+                      : "bg-gray-800 text-gray-200"
                   }`}
                 >
                   <option value="All">همه</option>
@@ -510,7 +528,9 @@ const KpiManagerReview = () => {
           {uniqueUsers.length > 0 && (
             <div className="mt-6 mb-6">
               <h3
-                className={`text-lg font-semibold ${isLight ? "text-gray-900" : "text-gray-200"} mb-4`}
+                className={`text-lg font-semibold ${
+                  isLight ? "text-gray-900" : "text-gray-200"
+                } mb-4`}
                 dir="rtl"
               >
                 کاربران
@@ -520,33 +540,67 @@ const KpiManagerReview = () => {
                   <div
                     key={`${user.personal_code}_${user.full_name}`}
                     className={`backdrop-blur-md shadow-lg rounded-xl p-4 border ${
-                      isLight ? "bg-white/90 border-gray-200" : "bg-gray-800/60 border-gray-700"
+                      isLight
+                        ? "bg-white/90 border-gray-200"
+                        : "bg-gray-800/60 border-gray-700"
                     }`}
                     dir="rtl"
                   >
                     <div className="flex flex-col space-y-3">
                       <div>
-                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
+                        <h4
+                          className={`${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          } font-medium text-sm mb-1`}
+                        >
                           نام و نام خانوادگی
                         </h4>
-                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"} font-semibold`}>
+                        <p
+                          className={`${
+                            isLight ? "text-gray-900" : "text-gray-200"
+                          } font-semibold`}
+                        >
                           {user.full_name}
                         </p>
                       </div>
                       <div>
-                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
+                        <h4
+                          className={`${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          } font-medium text-sm mb-1`}
+                        >
                           کد پرسنلی
                         </h4>
-                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"}`}>{user.personal_code}</p>
+                        <p
+                          className={`${
+                            isLight ? "text-gray-900" : "text-gray-200"
+                          }`}
+                        >
+                          {user.personal_code}
+                        </p>
                       </div>
                       <div>
-                        <h4 className={`${isLight ? "text-gray-700" : "text-gray-300"} font-medium text-sm mb-1`}>
+                        <h4
+                          className={`${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          } font-medium text-sm mb-1`}
+                        >
                           تعداد ردیف‌ها
                         </h4>
-                        <p className={`${isLight ? "text-gray-900" : "text-gray-200"}`}>{user.entry_count} ردیف</p>
+                        <p
+                          className={`${
+                            isLight ? "text-gray-900" : "text-gray-200"
+                          }`}
+                        >
+                          {user.entry_count} ردیف
+                        </p>
                       </div>
                       <div className="flex items-center justify-between pt-2">
-                        <span className={`${isLight ? "text-gray-700" : "text-gray-300"} text-sm font-medium`}>
+                        <span
+                          className={`${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          } text-sm font-medium`}
+                        >
                           اجازه ویرایش
                         </span>
                         <div className="relative group">
@@ -586,7 +640,9 @@ const KpiManagerReview = () => {
                           {user.has_confirmed_works && (
                             <div
                               className={`absolute z-10 invisible group-hover:visible w-48 text-xs rounded p-2 -left-4 -top-10 transform -translate-y-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
-                                isLight ? "bg-white text-gray-900 shadow border border-gray-200" : "bg-gray-800 text-white"
+                                isLight
+                                  ? "bg-white text-gray-900 shadow border border-gray-200"
+                                  : "bg-gray-800 text-white"
                               }`}
                             >
                               کاربر دارای کارهای تایید شده است و امکان تغییر
@@ -602,7 +658,11 @@ const KpiManagerReview = () => {
             </div>
           )}
 
-          <div className={`mt-6 overflow-auto pt-6 text-center ${isLight ? "border-t border-gray-200" : "border-t border-gray-600"}`}>
+          <div
+            className={`mt-6 overflow-auto pt-6 text-center ${
+              isLight ? "border-t border-gray-200" : "border-t border-gray-600"
+            }`}
+          >
             <table className="w-full text-sm mb-5">
               <thead>
                 <tr className="text-center">
@@ -634,9 +694,11 @@ const KpiManagerReview = () => {
                             caseOwner: e.target.value,
                           }))
                         }
-                        className="w-40 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-40 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.caseOwner.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -651,7 +713,7 @@ const KpiManagerReview = () => {
                             caseOwner: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -667,9 +729,11 @@ const KpiManagerReview = () => {
                             obj_weight: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.obj_weight.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -684,7 +748,7 @@ const KpiManagerReview = () => {
                             obj_weight: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -700,9 +764,11 @@ const KpiManagerReview = () => {
                             KPIEn: e.target.value,
                           }))
                         }
-                        className="w-32 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-32 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.KPIEn.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -717,7 +783,7 @@ const KpiManagerReview = () => {
                             KPIEn: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -733,9 +799,11 @@ const KpiManagerReview = () => {
                             KPIFa: e.target.value,
                           }))
                         }
-                        className="w-32 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-32 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.KPIFa.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -750,7 +818,7 @@ const KpiManagerReview = () => {
                             KPIFa: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -766,9 +834,11 @@ const KpiManagerReview = () => {
                             KPI_Info: e.target.value,
                           }))
                         }
-                        className="w-40 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-40 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.KPI_Info.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -783,7 +853,7 @@ const KpiManagerReview = () => {
                             KPI_Info: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -799,9 +869,11 @@ const KpiManagerReview = () => {
                             target: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.target.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -816,7 +888,7 @@ const KpiManagerReview = () => {
                             target: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -832,9 +904,11 @@ const KpiManagerReview = () => {
                             KPI_weight: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.KPI_weight.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -849,7 +923,7 @@ const KpiManagerReview = () => {
                             KPI_weight: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -865,9 +939,11 @@ const KpiManagerReview = () => {
                             KPI_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.KPI_Achievement.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -882,7 +958,7 @@ const KpiManagerReview = () => {
                             KPI_Achievement: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -898,9 +974,11 @@ const KpiManagerReview = () => {
                             Percentage_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.Percentage_Achievement.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -915,7 +993,7 @@ const KpiManagerReview = () => {
                             Percentage_Achievement: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -931,9 +1009,11 @@ const KpiManagerReview = () => {
                             Score_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.Score_Achievement.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -948,7 +1028,7 @@ const KpiManagerReview = () => {
                             Score_Achievement: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -964,9 +1044,11 @@ const KpiManagerReview = () => {
                             Type: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.Type.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -981,7 +1063,7 @@ const KpiManagerReview = () => {
                             Type: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -997,9 +1079,11 @@ const KpiManagerReview = () => {
                             Sum: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.Sum.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -1014,7 +1098,7 @@ const KpiManagerReview = () => {
                             Sum: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -1030,9 +1114,11 @@ const KpiManagerReview = () => {
                             Status: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-600 rounded bg-gray-800 text-gray-200 text-xs"
+                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
                       >
-                        <option value="">All</option>
+                        <option value="" className="text-gray-800">
+                          All
+                        </option>
                         {uniqueValues.Status.map((v) => (
                           <option key={String(v)} value={String(v)}>
                             {String(v)}
@@ -1047,7 +1133,7 @@ const KpiManagerReview = () => {
                             Status: "",
                           }))
                         }
-                        className="text-gray-400 hover:text-gray-200 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
                       >
                         ×
                       </button>
@@ -1056,15 +1142,15 @@ const KpiManagerReview = () => {
                   <th className="px-2 py-1 text-gray-400"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-600 text-center">
+              <tbody className="divide-y divide-gray-200 text-center">
                 {filteredEntries
                   .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                   .map((row, index) => (
-                    <tr key={row.id} className="bg-gray-700 align-top">
-                      <td className="px-2 py-2 text-gray-200">
+                    <tr className="bg-white hover:bg-gray-50 align-top">
+                      <td className="px-2 py-2 text-gray-800">
                         {(currentPage - 1) * pageSize + index + 1}
                       </td>
-                      <td className="px-2 py-2 text-gray-300">
+                      <td className="px-2 py-2 text-gray-700">
                         {row.full_name} ({row.personal_code})
                       </td>
                       <td className="px-2 py-2">
@@ -1082,7 +1168,7 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Object weight"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1094,7 +1180,7 @@ const KpiManagerReview = () => {
                             handleChange(row.id, "KPIEn", e.target.value)
                           }
                           placeholder="KPI English"
-                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1107,7 +1193,7 @@ const KpiManagerReview = () => {
                             handleChange(row.id, "KPIFa", e.target.value)
                           }
                           placeholder="KPI Farsi"
-                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1139,7 +1225,7 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Target"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1177,7 +1263,7 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="KPI Achievement"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1246,7 +1332,7 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Sum"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>

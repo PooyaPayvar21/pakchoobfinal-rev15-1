@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.validators import MinLengthValidator
+from django.conf import settings
 
 # Create your models here.
 
@@ -806,6 +807,29 @@ class Reminder(models.Model):
         """Check if the reminder is overdue and not sent"""
         return self.is_due() and not self.is_sent
 
+class Notification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('info', 'Information'),
+        ('success', 'Success'),
+        ('warning', 'Warning'),
+        ('error', 'Error'),
+    ]
+    
+    personal_code = models.CharField(max_length=50, db_index=True)
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True)
+    type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='info')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"{self.title} - {self.personal_code}"
+
+
 class WaterTreatment(models.Model):
     operator = models.CharField(max_length=100, default='', help_text="نام اپراتور")
     tarikhesabt = models.DateTimeField(null=True, blank=True, help_text="تاریخ و ساعت ثبت فرم")
@@ -1039,20 +1063,3 @@ class KPIEntry(models.Model):
 
     def __str__(self):
         return f"{self.row} - {self.company_name} - {self.full_name}"
-
-
-class Notification(models.Model):
-    personal_code = models.CharField(max_length=50, db_index=True)
-    title = models.CharField(max_length=200)
-    message = models.TextField(blank=True)
-    type = models.CharField(max_length=100, blank=True, default="info")
-    read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Notification"
-        verbose_name_plural = "Notifications"
-
-    def __str__(self):
-        return f"{self.personal_code} - {self.title}"

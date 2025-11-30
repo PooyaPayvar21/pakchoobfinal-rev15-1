@@ -22,6 +22,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import api_view, permission_classes
+from .models import Notification
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .models import (
     LoginUser,
     SubmitForm,
@@ -1081,17 +1085,6 @@ def kpientry_grant_edit(request):
         if manager_departman:
             qs = qs.filter(departman=manager_departman)
         updated = qs.update(entry_type='Editable')
-        try:
-            if updated > 0:
-                Notification.objects.create(
-                    personal_code=personal_code,
-                    title="اعطای مجوز ویرایش",
-                    message=f"مجوز ویرایش برای دسته {category or 'All'} به شما داده شد",
-                    type="kpi_edit_granted",
-                )
-            
-        except Exception:
-            pass
         return Response({"status": "success", "updated": updated})
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1111,16 +1104,6 @@ def kpientry_revoke_edit(request):
         if manager_departman:
             qs = qs.filter(departman=manager_departman)
         updated = qs.update(entry_type='')
-        try:
-            if updated > 0:
-                Notification.objects.create(
-                    personal_code=personal_code,
-                    title="لغو مجوز ویرایش",
-                    message=f"مجوز ویرایش برای دسته {category or 'All'} لغو شد",
-                    type="kpi_edit_revoked",
-                )
-        except Exception:
-            pass
         return Response({"status": "success", "updated": updated})
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -4846,14 +4829,73 @@ def send_notification(request):
         title = request.data.get("title")
         message = request.data.get("message", "")
         ntype = request.data.get("type", "info")
+        
         if not personal_code or not title:
-            return Response({"status": "error", "message": "personal_code and title are required"}, status=status.HTTP_400_BAD_REQUEST)
-        n = Notification.objects.create(
+            return Response(
+                {"status": "error", "message": "personal_code and title are required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create the notification
+        notification = Notification.objects.create(
             personal_code=personal_code,
             title=title,
             message=message,
             type=ntype,
         )
-        return Response({"status": "success", "id": n.id})
+
+        channel_layer = get_channel_layer()
+        payload = {
+            'type': 'send_notification',
+            'message': {
+                'id': notification.id,
+                'title': title,
+                'message': message,
+                'type': ntype,
+                'created_at': notification.created_at.isoformat(),
+                'is_read': False
+            }
+        }
+        async_to_sync(channel_layer.group_send)(f'notifications_{personal_code}', payload)
+
+        return Response({"status": "success", "id": notification.id})
     except Exception as e:
-        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"status": "error", "message": str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
+# Add these new views
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_notification_as_read(request, notification_id):
+    try:
+        user_code = getattr(request.user, "personal_code", None) or request.user.username
+        notification = Notification.objects.get(id=notification_id, personal_code=user_code)
+        notification.is_read = True
+        notification.read_at = timezone.now()
+        notification.save()
+        return Response({"status": "success"})
+    except Notification.DoesNotExist:
+        return Response({"status": "error", "message": "Notification not found"}, status=404)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def mark_all_notifications_read(request):
+    user_code = getattr(request.user, "personal_code", None) or request.user.username
+    Notification.objects.filter(
+        personal_code=user_code,
+        is_read=False
+    ).update(is_read=True, read_at=timezone.now())
+    return Response({"status": "success"})
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_notification(request, notification_id):
+    try:
+        user_code = getattr(request.user, "personal_code", None) or request.user.username
+        notification = Notification.objects.get(id=notification_id, personal_code=user_code)
+        notification.delete()
+        return Response({"status": "success"})
+    except Notification.DoesNotExist:
+        return Response({"status": "error", "message": "Notification not found"}, status=404)
