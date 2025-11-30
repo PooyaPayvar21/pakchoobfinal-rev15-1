@@ -13,6 +13,7 @@ from .models import (
     PmAghlam,
     PmTechnician,
     PmPersonel,
+    KPIEntry,
 )
 
 
@@ -592,3 +593,28 @@ admin.site.register(PmForms, AdminPmForms)
 admin.site.register(PmAghlam, AdminPmAghlam)
 admin.site.register(PmTechnician, AdminPmTechnician)
 admin.site.register(PmPersonel, AdminPmPersonel)
+
+
+class AdminKPIEntry(admin.ModelAdmin):
+    list_display = (
+        "row",
+        "company_name",
+        "season",
+        "personal_code",
+        "full_name",
+        "role",
+        "departman",
+        "category",
+        "obj_weight",
+        "kpi_en",
+        "kpi_fa",
+        "target",
+        "kpi_weight",
+        "kpi_achievement",
+        "score_achievement",
+        "sum_value",
+    )
+    search_fields = ("company_name", "personal_code", "full_name", "kpi_en", "kpi_fa")
+
+
+admin.site.register(KPIEntry, AdminKPIEntry)

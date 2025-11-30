@@ -22,31 +22,31 @@ const LoginMainForm = ({ userType, onLoginSuccess }) => {
       }
       switch (userTypeState) {
         case "pm":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "electric":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "mechanic":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "utility":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "production":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "metalworking":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "tarashkari":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "generalmechanic":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         case "paint":
-          navigate("/admindashboard");
+          navigate("/kpidashboard");
           break;
         default:
           console.warn("Unknown user type:", userTypeState);
@@ -86,6 +86,34 @@ const LoginMainForm = ({ userType, onLoginSuccess }) => {
           ? response.data.sections.join(",")
           : response.data.sections;
         localStorage.setItem("sections", sections);
+
+        // Store KPI data if available
+        if (response.data.kpi_data) {
+          console.log("Storing KPI data:", response.data.kpi_data);
+          // Store as kpiUserInfo for Sidebar to access
+          localStorage.setItem(
+            "kpiUserInfo",
+            JSON.stringify(response.data.kpi_data)
+          );
+          // Also store individual fields for backward compatibility
+          localStorage.setItem(
+            "kpi_data",
+            JSON.stringify(response.data.kpi_data)
+          );
+          localStorage.setItem(
+            "personal_code",
+            response.data.kpi_data.personal_code
+          );
+          localStorage.setItem("full_name", response.data.kpi_data.full_name);
+          localStorage.setItem(
+            "company_name",
+            response.data.kpi_data.company_name
+          );
+          localStorage.setItem(
+            "departman",
+            response.data.kpi_data.departman || ""
+          );
+        }
 
         // Update state after successful login
         console.log("Setting user type state:", response.data.user_type);

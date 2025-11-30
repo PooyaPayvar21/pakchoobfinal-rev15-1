@@ -13,9 +13,43 @@ from .models import (
     PmAghlam,
     Reminder,
     WaterTreatment,
-    SubmitPM
+    SubmitPM,
+    KPIWork,
+    KPIWorkResponse
 )
+from .models import KPIEntry
 
+
+class KPIWorkSerializer(serializers.ModelSerializer):
+    person_name = serializers.CharField(source='person.username', read_only=True)
+    person_id = serializers.IntegerField(source='person.id', read_only=True)
+    
+    class Meta:
+        model = KPIWork
+        fields = [
+            'id',
+            'facility',
+            'section',
+            'role',
+            'person',
+            'person_id',
+            'person_name',
+            'task_name',
+            'description',
+            'status',
+            'percentage',
+            'due_date',
+            'notes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ('created_at', 'updated_at')
+    
+    def validate_percentage(self, value):
+        """Ensure percentage is between 0 and 100"""
+        if not 0 <= value <= 100:
+            raise serializers.ValidationError("Percentage must be between 0 and 100")
+        return value
 User = get_user_model()
 
 
@@ -147,3 +181,56 @@ class SubmitPMSerializer(serializers.ModelSerializer):
             if obj.created_by:
                 return {"id": obj.created_by.id, "username": obj.created_by.username}
             return None
+
+
+class KPIWorkResponseSerializer(serializers.ModelSerializer):
+    respondent_name = serializers.CharField(source='respondent.username', read_only=True)
+    respondent_id = serializers.IntegerField(source='respondent.id', read_only=True)
+    kpi_work_details = KPIWorkSerializer(source='kpi_work', read_only=True)
+    
+    class Meta:
+        model = KPIWorkResponse
+        fields = [
+            'id',
+            'kpi_work',
+            'kpi_work_details',
+            'respondent',
+            'respondent_id',
+            'respondent_name',
+            'response_text',
+            'completion_notes',
+            'attachments',
+            'status',
+            'submitted_at',
+            'updated_at',
+        ]
+        read_only_fields = ('submitted_at', 'updated_at')
+
+
+class KPIEntrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KPIEntry
+        fields = [
+            "row",
+            "company_name",
+            "season",
+            "personal_code",
+            "full_name",
+            "role",
+            "direct_management",
+            "departman",
+            "category",
+            "obj_weight",
+            "kpi_en",
+            "kpi_fa",
+            "kpi_info",
+            "target",
+            "kpi_weight",
+            "kpi_achievement",
+            "score_achievement",
+            "score_achievement_alt",
+            "entry_type",
+            "sum_value",
+            "created_at",
+            "updated_at",
+        ]

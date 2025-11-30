@@ -33,18 +33,21 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://planningmaintenance.ir",
     "https://www.planningmaintenance.ir",
-    "http://localhost:5174",
-    "http://localhost:5173",
+    "http://localhost:3001",
+    "http://localhost:8000",
 ]
 
 # CORS Settings
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = False  # Set to False for security
+# During local development it's convenient to allow all origins so the
+# frontend (vite/dev server) can call the API without CORS issues.
+# Change back to False in production and restrict origins accordingly.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "https://planningmaintenance.ir",
     "https://www.planningmaintenance.ir",
-    "http://localhost:5174",
-    "http://localhost:5173",
+    "http://localhost:3001",
+    "http://localhost:8000",
 ]
 
 CORS_ALLOW_HEADERS = [

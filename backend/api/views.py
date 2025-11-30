@@ -47,9 +47,32 @@ from .serializers import (
     PmAghlamSerializer,
     ReminderSerializer,
     WaterTreatmentSerializer,
-    SubmitPMSerializer
+    SubmitPMSerializer,
+    KPIWorkSerializer,
+    KPIWorkResponseSerializer
 )
 
+from .serializers import KPIEntrySerializer
+
+from django.db import models
+from django.db.models import Q
+from .models import (
+    LoginUser,
+    SubmitForm,
+    TechnicianSubmit,
+    Personel,
+    Aghlam,
+    PmForms,
+    PmTechnician,
+    PmPersonel,
+    PmAghlam,
+    Reminder,
+    WaterTreatment,
+    SubmitPM,
+    KPIWork,
+    KPIWorkResponse
+)
+from .models import KPIEntry
 SECTION_CODES = {
     # MDF-2
     "Chipper": "01",
@@ -72,6 +95,20 @@ SECTION_CODES = {
     "Agheshte": "03",
 }
 
+from .serializers import (
+    SubmitFormSerializer,
+    TechnicianSubmitSerializer,
+    PersonelSerializer,
+    AghlamSerializer,
+    PmFormsSerializer,
+    PmTechnicianSerializer,
+    PmPersonelSerializer,
+    PmAghlamSerializer,
+    ReminderSerializer,
+    WaterTreatmentSerializer,
+    SubmitPMSerializer,
+    KPIWorkSerializer
+)
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
@@ -180,6 +217,354 @@ def send_sms(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
+# ==================== KPI Endpoints ====================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_facilities(request):
+    """Get list of all facilities for KPI dashboard"""
+    facilities = [choice[0] for choice in KPIWork.FACILITY_CHOICES]
+    return Response({
+        'facilities': facilities
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_sections(request):
+    """Get list of all sections for KPI dashboard"""
+    sections = [choice[0] for choice in KPIWork.SECTION_CHOICES]
+    return Response({
+        'sections': sections
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_roles(request):
+    """Get list of all roles for KPI dashboard"""
+    roles = [choice[0] for choice in KPIWork.ROLE_CHOICES]
+    return Response({
+        'roles': roles
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_people_by_role(request):
+    """Get list of people for a specific KPI role"""
+    role = request.query_params.get('role')
+    
+    if not role:
+        return Response(
+            {'error': 'role parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Accept role in either the KPI label (Persian) or the internal
+        # LoginUser.role value (English). Map common KPI labels to the
+        # internal role names so the frontend's Persian role names
+        # (e.g. "مدیر", "رئیس", "کارشناس") will return matching users.
+        role_map = {
+            'مدیر': 'management',
+            'رئیس': 'management',
+            'کارشناس': 'technician',
+            # allow English passthrough if frontend sends internal values
+            'management': 'management',
+            'technician': 'technician',
+            'operator': 'operator',
+        }
+
+        internal_role = role_map.get(role, None)
+
+        if internal_role:
+            people_qs = LoginUser.objects.filter(role=internal_role)
+        else:
+            # Fallback: try to match users where their username equals role
+            # or where their additional_roles contains the value.
+            people_qs = LoginUser.objects.filter(
+                Q(username__iexact=role) | Q(additional_roles__icontains=role)
+            )
+
+        people = people_qs.distinct().values('id', 'username', 'email')
+        
+        return Response({
+            'people': list(people)
+        })
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_kpi_work(request):
+    """Submit a new KPI work entry"""
+    try:
+        data = request.data
+        logger.info(f"[KPI] submit_kpi_work called with data: {data}")
+        
+        # Get the person - either from data or use current user
+        person_id = data.get('person_id')
+        if not person_id:
+            person_id = request.user.id
+            logger.info(f"[KPI] No person_id provided, using current user: {person_id}")
+        
+        logger.info(f"[KPI] Looking up person with ID: {person_id}")
+        person = get_object_or_404(LoginUser, id=person_id)
+        logger.info(f"[KPI] Found person: {person.username} (ID: {person.id})")
+        
+        # Create KPI work entry
+        kpi_work = KPIWork.objects.create(
+            facility=data.get('facility'),
+            section=data.get('section'),
+            role=data.get('role'),
+            person=person,
+            task_name=data.get('task_name'),
+            description=data.get('description', ''),
+            status=data.get('status', 'Working'),
+            percentage=int(data.get('percentage', 0)),
+            due_date=data.get('due_date', None),
+            notes=data.get('notes', ''),
+        )
+        
+        logger.info(f"[KPI] Created KPI work ID: {kpi_work.id} for person: {person.username} (person_id: {person.id})")
+        
+        serializer = KPIWorkSerializer(kpi_work)
+        return Response(
+            {
+                'message': 'Work entry submitted successfully',
+                'data': serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
+    
+    except Exception as e:
+        logger.error(f"[KPI] Error submitting KPI work: {str(e)}")
+        logger.error(f"[KPI] Exception details: {traceback.format_exc()}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_work_history(request, person_id=None):
+    """Get work history for a specific person"""
+    try:
+        if not person_id:
+            person_id = request.user.id
+        
+        person = get_object_or_404(LoginUser, id=person_id)
+        
+        # Get work entries ordered by date
+        work_entries = KPIWork.objects.filter(person=person).order_by('-created_at')
+        serializer = KPIWorkSerializer(work_entries, many=True)
+        
+        # Calculate KPI metrics
+        total_works = work_entries.count()
+        completed = work_entries.filter(status='Done').count()
+        working = work_entries.filter(status='Working').count()
+        not_done = work_entries.filter(status='Not Done').count()
+        
+        avg_percentage = 0
+        if total_works > 0:
+            total_percentage = work_entries.aggregate(
+                total=models.Sum('percentage')
+            )['total'] or 0
+            avg_percentage = round(total_percentage / total_works, 2)
+        
+        return Response({
+            'person': {
+                'id': person.id,
+                'username': person.username,
+                'email': person.email,
+                'role': person.role
+            },
+            'metrics': {
+                'total_works': total_works,
+                'completed': completed,
+                'working': working,
+                'not_done': not_done,
+                'completion_percentage': avg_percentage,
+                'completed_percentage': round((completed / total_works * 100) if total_works > 0 else 0, 2),
+                'working_percentage': round((working / total_works * 100) if total_works > 0 else 0, 2),
+                'not_done_percentage': round((not_done / total_works * 100) if total_works > 0 else 0, 2),
+            },
+            'work_history': serializer.data
+        })
+    
+    except Exception as e:
+        logger.error(f"Error retrieving KPI work history: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_metrics(request):
+    """Get overall KPI metrics for all facilities/sections"""
+    try:
+        facility = request.query_params.get('facility')
+        section = request.query_params.get('section')
+        
+        # Start with all work entries
+        work_entries = KPIWork.objects.all()
+        
+        # Filter by facility if provided
+        if facility:
+            work_entries = work_entries.filter(facility=facility)
+        
+        # Filter by section if provided
+        if section:
+            work_entries = work_entries.filter(section=section)
+        
+        total_works = work_entries.count()
+        completed = work_entries.filter(status='Done').count()
+        working = work_entries.filter(status='Working').count()
+        not_done = work_entries.filter(status='Not Done').count()
+        
+        avg_percentage = 0
+        if total_works > 0:
+            total_percentage = work_entries.aggregate(
+                total=models.Sum('percentage')
+            )['total'] or 0
+            avg_percentage = round(total_percentage / total_works, 2)
+        
+        return Response({
+            'total_works': total_works,
+            'completed': completed,
+            'working': working,
+            'not_done': not_done,
+            'completion_percentage': avg_percentage,
+            'completed_percentage': round((completed / total_works * 100) if total_works > 0 else 0, 2),
+            'working_percentage': round((working / total_works * 100) if total_works > 0 else 0, 2),
+            'not_done_percentage': round((not_done / total_works * 100) if total_works > 0 else 0, 2),
+        })
+    
+    except Exception as e:
+        logger.error(f"Error calculating KPI metrics: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+@api_view(['POST', 'GET'])
+@permission_classes([AllowAny])
+def submit_kpientry(request):
+    """Create or update KPIEntry records from form data with multiple tasks."""
+    if request.method == 'GET':
+        # Handle GET request to fetch existing KPI entries
+        personal_code = request.query_params.get('personal_code', '')
+        category = request.query_params.get('category', 'MainTasks')
+        
+        if not personal_code:
+            return Response(
+                {'status': 'error', 'message': 'personal_code parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            if category in [None, '', 'All']:
+                entries = KPIEntry.objects.filter(
+                    personal_code=personal_code
+                ).order_by('-created_at')
+            else:
+                entries = KPIEntry.objects.filter(
+                    personal_code=personal_code,
+                    category=category
+                ).order_by('-created_at')
+            
+            serializer = KPIEntrySerializer(entries, many=True)
+            editable = entries.filter(entry_type='Editable').exists()
+            return Response({
+                'status': 'success',
+                'count': entries.count(),
+                'tasks': serializer.data,
+                'editable': editable
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error fetching KPI entries: {str(e)}")
+            return Response(
+                {'status': 'error', 'message': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    # Original POST logic
+    try:
+        data = request.data or {}
+        category = data.get("category", "")
+        tasks = data.get("tasks", [])
+        
+        # Get user info from authenticated user
+        user = request.user if request.user.is_authenticated else None
+        personal_code = data.get("personal_code", "")
+        
+        created_entries = []
+        
+        for task in tasks:
+            payload = {
+                "company_name": data.get("company_name", ""),
+                "personal_code": personal_code,
+                "full_name": data.get("full_name", ""),
+                "role": data.get("role", ""),
+                "direct_management": data.get("direct_management", ""),
+                "departman": data.get("departman", ""),
+                "category": category,
+                "obj_weight": task.get("obj_weight", ""),
+                "kpi_en": task.get("KPIEn", ""),
+                "kpi_fa": task.get("KPIFa", ""),
+                "kpi_info": task.get("KPI_Info", ""),
+                "target": task.get("target", ""),
+                "kpi_weight": task.get("KPI_weight", ""),
+                "kpi_achievement": task.get("KPI_Achievement", ""),
+                "score_achievement": task.get("Score_Achievement", ""),
+                "score_achievement_alt": task.get("Percentage_Achievement", ""),
+                "entry_type": task.get("Type", ""),
+                "sum_value": task.get("Sum", ""),
+            }
+            
+            # Check if entry with same personal_code and kpi_en exists
+            if personal_code and task.get("KPIEn"):
+                existing_entry = KPIEntry.objects.filter(
+                    personal_code=personal_code,
+                    kpi_en=task.get("KPIEn")
+                ).first()
+                
+                if existing_entry:
+                    # Update existing entry
+                    serializer = KPIEntrySerializer(existing_entry, data=payload, partial=True)
+                else:
+                    # Create new entry
+                    serializer = KPIEntrySerializer(data=payload)
+            else:
+                # Create new entry if no personal_code or kpi_en
+                serializer = KPIEntrySerializer(data=payload)
+            
+            if serializer.is_valid():
+                instance = serializer.save()
+                created_entries.append(serializer.data)
+            else:
+                return Response({"status": "error", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(
+            {
+                "status": "success",
+                "message": f"{len(created_entries)} KPI entries processed successfully",
+                "data": created_entries
+            },
+            status=status.HTTP_201_CREATED
+        )
+    except Exception as e:
+        logger.error(f"Error in submit_kpientry: {str(e)}")
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 WORKTYPE_MAP = {
     "mechanic": "مکانیک",
@@ -398,6 +783,324 @@ class SubmitFormDetailView(APIView):
         return Response(
             {"form_data": serializer.data, "user_type": request.user.user_type}
         )
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def kpientry_options(request):
+    try:
+        full_names = list(
+            KPIEntry.objects.exclude(full_name="")
+            .values_list("full_name", flat=True)
+            .distinct()
+            .order_by("full_name")
+        )
+        direct_managements = list(
+            KPIEntry.objects.exclude(direct_management="")
+            .exclude(direct_management__isnull=True)
+            .values_list("direct_management", flat=True)
+            .distinct()
+            .order_by("direct_management")
+        )
+        roles = list(
+            KPIEntry.objects.exclude(role="")
+            .values_list("role", flat=True)
+            .distinct()
+            .order_by("role")
+        )
+        people = list(
+            KPIEntry.objects.exclude(full_name="")
+            .exclude(personal_code="")
+            .values("personal_code", "full_name")
+            .distinct()
+            .order_by("full_name")
+        )
+        # Also include departman values for debugging
+        departmans = list(
+            KPIEntry.objects.exclude(departman="")
+            .exclude(departman__isnull=True)
+            .values_list("departman", flat=True)
+            .distinct()
+            .order_by("departman")
+        )
+        return Response(
+            {
+                "full_names": full_names,
+                "direct_managements": direct_managements,
+                "roles": roles,
+                "people": people,
+                "departmans": departmans,
+            }
+        )
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def kpientry_update_management(request):
+    try:
+        personal_code = request.data.get("personal_code")
+        full_name = request.data.get("full_name")
+        new_direct = request.data.get("direct_management")
+        new_role = request.data.get("role")
+
+        if not personal_code and not full_name:
+            return Response(
+                {"status": "error", "message": "personal_code or full_name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = KPIEntry.objects.all()
+        if personal_code:
+            qs = qs.filter(personal_code=personal_code)
+        elif full_name:
+            qs = qs.filter(full_name=full_name)
+
+        update_fields = {}
+        if new_direct is not None:
+            update_fields["direct_management"] = new_direct
+        if new_role is not None:
+            update_fields["role"] = new_role
+
+        if not update_fields:
+            return Response(
+                {"status": "error", "message": "No fields to update"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        updated = qs.update(**update_fields)
+        return Response({"status": "success", "updated": updated})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def kpientry_subordinates(request):
+    try:
+        manager = request.query_params.get('manager', '').strip()
+        personal_code = request.query_params.get('personal_code', '').strip()
+        category = request.query_params.get('category', '').strip()
+        departman = request.query_params.get('departman', '').strip()
+        not_managed = request.query_params.get('not_managed') in ['true', '1', 'True']
+        outside_department = request.query_params.get('outside_department') in ['true', '1', 'True']
+        
+        if not manager:
+            return Response({"status": "error", "message": "manager parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Debug logging
+        logger.info(f"[KPI Subordinates] Query params: manager='{manager}', departman='{departman}', category='{category}', not_managed={not_managed}, outside_department={outside_department}")
+        
+        # Build query based on filters
+        if outside_department:
+            # Show entries outside the department
+            if not departman:
+                return Response({"status": "error", "message": "departman parameter is required when outside_department is true"}, status=status.HTTP_400_BAD_REQUEST)
+            qs = KPIEntry.objects.exclude(departman__iexact=departman)
+        elif not_managed:
+            # Show entries in the department that are NOT managed by this manager
+            if not departman:
+                return Response({"status": "error", "message": "departman parameter is required when not_managed is true"}, status=status.HTTP_400_BAD_REQUEST)
+            qs = KPIEntry.objects.filter(departman__iexact=departman).exclude(direct_management__iexact=manager)
+        else:
+            # Default: Show entries managed by this manager
+            # First, check what entries exist with this manager name (for debugging)
+            all_manager_entries = KPIEntry.objects.filter(
+                direct_management__iexact=manager
+            ).exclude(direct_management__isnull=True).exclude(direct_management="")
+            logger.info(f"[KPI Subordinates] Found {all_manager_entries.count()} total entries with direct_management='{manager}'")
+            
+            # Log sample entries to see what departments they have
+            sample_entries = all_manager_entries[:10]
+            for entry in sample_entries:
+                logger.info(f"[KPI Subordinates] Sample entry: direct_management='{entry.direct_management}', departman='{entry.departman}', full_name='{entry.full_name}'")
+            
+            # Build the query: Show entries managed by this manager
+            # Exclude the manager's own entries (where full_name equals manager name)
+            qs = KPIEntry.objects.filter(
+                direct_management__iexact=manager
+            ).exclude(direct_management__isnull=True).exclude(direct_management="").exclude(full_name__iexact=manager)
+            
+            # If departman is provided and not empty, always filter by it
+            # Direct managers should only see users in their own department
+            if departman and departman.strip():
+                qs = qs.filter(departman__iexact=departman)
+                matching_dept = qs.count()
+                logger.info(f"[KPI Subordinates] Entries matching department '{departman}': {matching_dept}")
+                
+                # Log what departments entries actually have for debugging
+                if matching_dept == 0:
+                    unique_depts = KPIEntry.objects.filter(
+                        direct_management__iexact=manager
+                    ).exclude(direct_management__isnull=True).exclude(direct_management="").exclude(full_name__iexact=manager).values_list('departman', flat=True).distinct()
+                    logger.info(f"[KPI Subordinates] No results with departman filter '{departman}'. Available departments for this manager: {list(unique_depts)}")
+                    
+                    # Fallback: If no entries found with direct_management matching, 
+                    # show all users in the department (they may need to update direct_management)
+                    # But still exclude the manager's own entries
+                    logger.info(f"[KPI Subordinates] No entries found with direct_management='{manager}' in department '{departman}'. Showing all users in department as fallback.")
+                    qs = KPIEntry.objects.filter(departman__iexact=departman).exclude(full_name="").exclude(full_name__isnull=True).exclude(full_name__iexact=manager)
+            
+            # If still no results and no department filter, try contains search as fallback
+            if not qs.exists() and (not departman or not departman.strip()):
+                logger.info(f"[KPI Subordinates] No results with exact match, trying contains search")
+                qs = KPIEntry.objects.filter(
+                    direct_management__icontains=manager
+                ).exclude(direct_management__isnull=True).exclude(direct_management="").exclude(full_name__iexact=manager)
+                if departman and departman.strip():
+                    qs = qs.filter(departman__iexact=departman)
+        
+        # Additional filters
+        if personal_code:
+            qs = qs.filter(personal_code=personal_code)
+        if category and category not in ['', 'All']:
+            qs = qs.filter(category=category)
+        
+        qs = qs.order_by('-created_at')
+        count = qs.count()
+        logger.info(f"[KPI Subordinates] Final query count: {count}")
+        
+        # Additional debug info
+        debug_info = {
+            "manager": manager,
+            "departman": departman,
+            "category": category,
+        }
+        
+        # If no results, check what exists in database
+        if count == 0:
+            # Check if any entries exist with this manager name at all
+            any_manager_entries = KPIEntry.objects.filter(
+                direct_management__iexact=manager
+            ).exclude(direct_management__isnull=True).exclude(direct_management="").count()
+            debug_info["entries_with_manager"] = any_manager_entries
+            
+            # Check with contains search
+            contains_entries = KPIEntry.objects.filter(
+                direct_management__icontains=manager
+            ).exclude(direct_management__isnull=True).exclude(direct_management="").count()
+            debug_info["entries_with_manager_contains"] = contains_entries
+            
+            # Get sample direct_management values
+            sample_managers = list(KPIEntry.objects.exclude(
+                direct_management=""
+            ).exclude(
+                direct_management__isnull=True
+            ).values_list('direct_management', flat=True).distinct()[:10])
+            debug_info["sample_direct_managements"] = sample_managers
+            
+            # If department is provided, show what users exist in that department and their direct_management values
+            if departman and departman.strip():
+                dept_entries = KPIEntry.objects.filter(
+                    departman__iexact=departman
+                ).exclude(full_name="").exclude(full_name__isnull=True)
+                dept_count = dept_entries.count()
+                debug_info["entries_in_department"] = dept_count
+                
+                # Get sample users in this department with their direct_management
+                sample_dept_users = list(
+                    dept_entries.values('full_name', 'personal_code', 'direct_management', 'departman')
+                    .distinct()[:20]
+                )
+                debug_info["sample_users_in_department"] = sample_dept_users
+                
+                # Get unique direct_management values in this department
+                dept_managers = list(
+                    dept_entries.exclude(direct_management="")
+                    .exclude(direct_management__isnull=True)
+                    .values_list('direct_management', flat=True)
+                    .distinct()[:20]
+                )
+                debug_info["direct_managements_in_department"] = dept_managers
+        
+        serializer = KPIEntrySerializer(qs, many=True)
+        return Response({
+            "status": "success" if count > 0 else "no_results", 
+            "count": count, 
+            "tasks": serializer.data,
+            "debug": debug_info
+        })
+    except Exception as e:
+        logger.error(f"[KPI Subordinates] Error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])
+def kpientry_update_row(request, row):
+    try:
+        instance = KPIEntry.objects.get(row=row)
+        serializer = KPIEntrySerializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"status": "success", "data": serializer.data})
+        return Response({"status": "error", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    except KPIEntry.DoesNotExist:
+        return Response({"status": "error", "message": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['DELETE'])
+@permission_classes([AllowAny])
+def kpientry_delete_row(request, row):
+    try:
+        instance = KPIEntry.objects.get(row=row)
+        instance.delete()
+        return Response({"status": "success"})
+    except KPIEntry.DoesNotExist:
+        return Response({"status": "error", "message": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def kpientry_confirm_row(request, row):
+    try:
+        instance = KPIEntry.objects.get(row=row)
+        instance.entry_type = 'Confirmed'
+        instance.save(update_fields=['entry_type'])
+        serializer = KPIEntrySerializer(instance)
+        return Response({"status": "success", "data": serializer.data})
+    except KPIEntry.DoesNotExist:
+        return Response({"status": "error", "message": "Entry not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def kpientry_grant_edit(request):
+    try:
+        personal_code = request.data.get('personal_code')
+        category = request.data.get('category')
+        manager_departman = request.data.get('manager_departman')
+        if not personal_code:
+            return Response({"status": "error", "message": "personal_code is required"}, status=status.HTTP_400_BAD_REQUEST)
+        qs = KPIEntry.objects.filter(personal_code=personal_code)
+        if category and category not in ['', 'All']:
+            qs = qs.filter(category=category)
+        if manager_departman:
+            qs = qs.filter(departman=manager_departman)
+        updated = qs.update(entry_type='Editable')
+        return Response({"status": "success", "updated": updated})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def kpientry_revoke_edit(request):
+    try:
+        personal_code = request.data.get('personal_code')
+        category = request.data.get('category')
+        manager_departman = request.data.get('manager_departman')
+        if not personal_code:
+            return Response({"status": "error", "message": "personal_code is required"}, status=status.HTTP_400_BAD_REQUEST)
+        qs = KPIEntry.objects.filter(personal_code=personal_code)
+        if category and category not in ['', 'All']:
+            qs = qs.filter(category=category)
+        if manager_departman:
+            qs = qs.filter(departman=manager_departman)
+        updated = qs.update(entry_type='')
+        return Response({"status": "success", "updated": updated})
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PmTechnicianSubmitList(APIView):
@@ -1940,13 +2643,39 @@ def login_view(request):
         # Get or create token
         token, _ = Token.objects.get_or_create(user=user)
 
+        # Try to fetch user's KPI entry data using username as personal_code
+        kpi_data = None
+        try:
+            kpi_entry = KPIEntry.objects.filter(personal_code=username).first()
+            if kpi_entry:
+                kpi_data = {
+                    "personal_code": kpi_entry.personal_code,
+                    "full_name": kpi_entry.full_name,
+                    "company_name": kpi_entry.company_name,
+                    "role": kpi_entry.role,
+                    "direct_management": kpi_entry.direct_management,
+                    "departman": kpi_entry.departman,
+                }
+        except Exception as e:
+            logger.warning(f"Could not fetch KPI data for user {username}: {str(e)}")
+
+        # Determine effective role, preferring KPIEntry role when available
+        effective_role = user.role
+        if kpi_data and kpi_data.get("role"):
+            kpi_role = (kpi_data.get("role") or "").strip()
+            if kpi_role in ["management", "technician", "operator"]:
+                effective_role = kpi_role
+            elif kpi_role in ["رئیس", "رئیس موقت", "مدیر"]:
+                effective_role = "management"
+
         # Get user info
         user_info = {
             "status": "success",
             "token": token.key,
             "user_type": user.user_type,
-            "role": user.role,
+            "role": effective_role,
             "sections": user.sections,
+            "kpi_data": kpi_data,
         }
 
         return Response(user_info, status=status.HTTP_200_OK)
@@ -3892,4 +4621,143 @@ def send_reminder_sms(request):
         return Response(
             {"status": "error", "message": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+# ==================== KPI Work Response Endpoints ====================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_assigned_kpi_works(request):
+    """Get list of KPI works assigned to a person"""
+    person_id = request.query_params.get('person_id')
+    
+    logger.info(f"[KPI] get_assigned_kpi_works called with person_id={person_id}")
+    
+    if not person_id:
+        logger.warning("[KPI] get_assigned_kpi_works: person_id not provided")
+        return Response(
+            {'error': 'person_id parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        works = KPIWork.objects.filter(person_id=person_id).order_by('-created_at')
+        logger.info(f"[KPI] Found {works.count()} works for person_id={person_id}: {[w.id for w in works]}")
+        
+        serializer = KPIWorkSerializer(works, many=True)
+        response_data = {'works': serializer.data}
+        logger.info(f"[KPI] Returning response with {len(serializer.data)} works")
+        
+        return Response(response_data)
+    except Exception as e:
+        logger.error(f"[KPI] Error fetching assigned works for person_id={person_id}: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def submit_kpi_work_response(request):
+    """Submit a response/answer to an assigned KPI work"""
+    try:
+        data = request.data
+        
+        kpi_work_id = data.get('kpi_work_id')
+        respondent_id = data.get('respondent_id')
+        response_text = data.get('response_text')
+        
+        if not all([kpi_work_id, respondent_id, response_text]):
+            return Response(
+                {'error': 'kpi_work_id, respondent_id, and response_text are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        kpi_work = get_object_or_404(KPIWork, id=kpi_work_id)
+        respondent = get_object_or_404(LoginUser, id=respondent_id)
+        
+        # Create the response
+        response = KPIWorkResponse.objects.create(
+            kpi_work=kpi_work,
+            respondent=respondent,
+            response_text=response_text,
+            completion_notes=data.get('completion_notes', ''),
+            attachments=data.get('attachments', []),
+            status=data.get('status', 'submitted')
+        )
+        
+        serializer = KPIWorkResponseSerializer(response)
+        return Response(
+            {
+                'message': 'Response submitted successfully',
+                'data': serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
+    
+    except Exception as e:
+        logger.error(f"Error submitting KPI work response: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_work_responses(request, kpi_work_id):
+    """Get all responses for a specific KPI work"""
+    try:
+        responses = KPIWorkResponse.objects.filter(kpi_work_id=kpi_work_id).order_by('-submitted_at')
+        serializer = KPIWorkResponseSerializer(responses, many=True)
+        return Response({
+            'responses': serializer.data
+        })
+    except Exception as e:
+        logger.error(f"Error fetching work responses: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])
+def update_kpi_work_status(request, kpi_work_id):
+    """Update the status of a KPI work"""
+    try:
+        data = request.data
+        status_value = data.get('status')
+        
+        if not status_value:
+            return Response(
+                {'error': 'status is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        kpi_work = get_object_or_404(KPIWork, id=kpi_work_id)
+        
+        logger.info(f"[KPI] Updating KPIWork {kpi_work_id} status from '{kpi_work.status}' to '{status_value}'")
+        
+        # Update the status
+        kpi_work.status = status_value
+        kpi_work.save()
+        
+        serializer = KPIWorkSerializer(kpi_work)
+        logger.info(f"[KPI] KPIWork {kpi_work_id} status updated successfully")
+        
+        return Response(
+            {
+                'message': 'KPI work status updated successfully',
+                'data': serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+    
+    except Exception as e:
+        logger.error(f"[KPI] Error updating KPI work status: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
         )

@@ -44,9 +44,28 @@ from .views import (
     send_reminder_sms,
     WaterTreatmentSubmit,
     SubmitPMCreate,
-    SubmitPMDetail
+    SubmitPMDetail,
+    get_kpi_facilities,
+    get_kpi_sections,
+    get_kpi_roles,
+    get_kpi_people_by_role,
+    submit_kpi_work,
+    submit_kpientry,
+    get_kpi_work_history,
+    get_kpi_metrics,
+    get_assigned_kpi_works,
+    submit_kpi_work_response,
+    get_work_responses,
+    update_kpi_work_status,
+    kpientry_options,
+    kpientry_update_management,
+    kpientry_subordinates,
+    kpientry_update_row,
+    kpientry_delete_row,
+    kpientry_confirm_row,
+    kpientry_grant_edit,
+    kpientry_revoke_edit,
 )
-
 # Create a router for ViewSets
 router = DefaultRouter()
 router.register(r"forms", SubmitFormViewSet, basename="forms")
@@ -176,4 +195,26 @@ urlpatterns = [
         name="reminder-detail",
     ),
     path("watertreatment/", WaterTreatmentSubmit, name="watertreatment"),
+
+    # KPI endpoints
+    path("kpi/facilities/", get_kpi_facilities, name="kpi-facilities"),
+    path("kpi/sections/", get_kpi_sections, name="kpi-sections"),
+    path("kpi/roles/", get_kpi_roles, name="kpi-roles"),
+    path("kpi/people/", get_kpi_people_by_role, name="kpi-people"),
+    path("kpi/work/", submit_kpi_work, name="kpi-work-submit"),
+    path("kpientry/create/", submit_kpientry, name="kpientry-create"),
+    path("kpientry/options/", kpientry_options, name="kpientry-options"),
+    path("kpientry/update-management/", kpientry_update_management, name="kpientry-update-management"),
+    path("kpientry/subordinates/", kpientry_subordinates, name="kpientry-subordinates"),
+    path("kpientry/row/<int:row>/", kpientry_update_row, name="kpientry-update-row"),
+    path("kpientry/row/<int:row>/delete/", kpientry_delete_row, name="kpientry-delete-row"),
+    path("kpientry/row/<int:row>/confirm/", kpientry_confirm_row, name="kpientry-confirm-row"),
+    path("kpientry/grant-edit/", kpientry_grant_edit, name="kpientry-grant-edit"),
+    path("kpientry/revoke-edit/", kpientry_revoke_edit, name="kpientry-revoke-edit"),
+    path("kpi/work/<int:person_id>/", get_kpi_work_history, name="kpi-work-history"),
+    path("kpi/work/<int:kpi_work_id>/status/", update_kpi_work_status, name="kpi-work-update-status"),
+    path("kpi/metrics/", get_kpi_metrics, name="kpi-metrics"),
+    path("kpi/assigned/", get_assigned_kpi_works, name="kpi-assigned-works"),
+    path("kpi/response/", submit_kpi_work_response, name="kpi-submit-response"),
+    path("kpi/response/<int:kpi_work_id>/", get_work_responses, name="kpi-work-responses"),
 ]

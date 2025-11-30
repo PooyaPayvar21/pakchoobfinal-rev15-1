@@ -1,0 +1,1 @@
+Patch applied will add `locked` state and disable inputs.

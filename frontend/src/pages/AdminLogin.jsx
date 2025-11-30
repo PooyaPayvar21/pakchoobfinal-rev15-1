@@ -1,7 +1,7 @@
 import React from "react";
 import Login from "../components/LoginMainForm";
 const AdminLogin = () => {
-  return <Login userType={"admin"} />;
+  return <Login userType={"management"} />;
 };
 
 export default AdminLogin;

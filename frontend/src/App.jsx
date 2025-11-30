@@ -24,6 +24,13 @@ import RCFA from "./pages/RCFA";
 import SubmitPM from "./pages/SubmitPM";
 import PmForms from "./pages/PmForms";
 import KpiDashboard from "./pages/KpiDashboard";
+import KPIDataEntry from "./pages/KPIDataEntry";
+import KpiWorkResponse from "./pages/KpiWorkResponse";
+import KPIPersonEntry from "./pages/KPIPersonEntry";
+import KpiUserInfo from "./pages/KpiUserInfo";
+import KpiManagementRelation from "./pages/KpiManagementRelation";
+import KpiManagerReview from "./pages/KpiManagerReview";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function Logout() {
   localStorage.clear();
@@ -60,7 +67,7 @@ function App() {
       <div className="flex h-screen bg-gray-900 text-gray-100 overflow-hidden">
         {/* BackGround */}
         <div className="fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 opacityحاجی حسین زاده	فنی و مهندسی	Main-80" />
           <div className="absolute inset-0 backdrop-blur-sm" />
         </div>
 
@@ -83,7 +90,55 @@ function App() {
           <Route path="/submitpm" element={<SubmitPM />} />
           <Route path="/pmforms" element={<PmForms />} />
           <Route path="/submitform" element={<SubmitForm />} />
-          <Route path="/kpidashboard" element={<KpiDashboard />} />
+          <Route
+            path="/kpidashboard"
+            element={
+              <ProtectedRoute>
+                <KpiDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kpidataentry"
+            element={
+              <ProtectedRoute requiredRole="management">
+                <KPIDataEntry />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kpiuserinfo"
+            element={
+              <ProtectedRoute>
+                <KpiUserInfo />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/kpipersonentry" element={<KPIPersonEntry />} />
+          <Route
+            path="/kpiworkresponse"
+            element={
+              <ProtectedRoute>
+                <KpiWorkResponse />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kpirelation"
+            element={
+              <ProtectedRoute requiredRole="management">
+                <KpiManagementRelation />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kpimanagerreview"
+            element={
+              <ProtectedRoute requiredRole="management">
+                <KpiManagerReview />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/pmformsubmit" element={<PmFormSubmit />} />
           <Route path="/logout" element={<Logout />} />
           <Route path="/forms" element={<Forms />} />

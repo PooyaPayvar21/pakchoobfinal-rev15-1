@@ -858,6 +858,71 @@ class SubmitPM(models.Model):
             # remove extra spaces around commas
             self.pmworktype = ",".join([p.strip() for p in self.pmworktype.split(",") if p.strip()])
 
+
+class KPIWork(models.Model):
+    """Model for storing KPI work entries from individuals in different facilities/sections"""
+    
+    STATUS_CHOICES = (
+        ("Done", "کار انجام شد"),
+        ("Working", "در حال انجام"),
+        ("Not Done", "کار انجام نشده"),
+    )
+    
+    FACILITY_CHOICES = (
+        ("پاک چوب خوزستان", "پاک چوب خوزستان"),
+        ("پاک چوب ایرانیان", "پاک چوب ایرانیان"),
+        ("پاک چوب خراسان", "پاک چوب خراسان"),
+        ("پاک چوب تخته فشرده", "پاک چوب تخته فشرده"),
+        ("گروه صنعتی", "گروه صنعتی"),
+    )
+    
+    SECTION_CHOICES = (
+        ("Plant Maintenance", "Plant Maintenance"),
+        ("Production", "Production"),
+        ("QC", "QC"),
+        ("Financial", "Financial"),
+        ("Human Resources", "Human Resources"),
+        ("HSE", "HSE"),
+        ("WareHouse", "WareHouse"),
+        ("Security", "Security"),
+        ("Sales", "Sales"),
+    )
+    
+    ROLE_CHOICES = (
+        ("مدیر", "مدیر"),
+        ("رئیس", "رئیس"),
+        ("کارشناس", "کارشناس"),
+    )
+    
+    facility = models.CharField(max_length=100, choices=FACILITY_CHOICES)
+    section = models.CharField(max_length=100, choices=SECTION_CHOICES)
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    person = models.ForeignKey(
+        LoginUser, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name="kpi_work_entries"
+    )
+    task_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Working")
+    percentage = models.IntegerField(default=0, help_text="Completion percentage 0-100")
+    due_date = models.DateField(blank=True, null=True)
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "KPI Work"
+        verbose_name_plural = "KPI Works"
+        indexes = [
+            models.Index(fields=["person", "-created_at"]),
+            models.Index(fields=["facility", "section"]),
+        ]
+    
+    def __str__(self):
+        return f"{self.person} - {self.task_name} ({self.facility})"
         # Generate a uniqueif not provided
         if not self.pmserial:
             base_code = timezone.now().strftime("PM%Y%m%d%H%M%S")
@@ -870,3 +935,107 @@ class SubmitPM(models.Model):
             self.pmserial = candidate
 
         super().save(*args, **kwargs)
+
+
+class KPIWorkResponse(models.Model):
+    """Model for storing user responses/answers to assigned KPI work"""
+    
+    STATUS_CHOICES = (
+        ("submitted", "Submitted"),
+        ("completed", "Completed"),
+        ("in_review", "In Review"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    )
+    
+    kpi_work = models.ForeignKey(
+        KPIWork,
+        on_delete=models.CASCADE,
+        related_name="responses"
+    )
+    respondent = models.ForeignKey(
+        LoginUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="kpi_responses"
+    )
+    response_text = models.TextField(help_text="User's response/answer to the work")
+    completion_notes = models.TextField(blank=True, null=True, help_text="Completion notes")
+    attachments = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of attachment URLs or file references"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="submitted"
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ["-submitted_at"]
+        verbose_name = "KPI Work Response"
+        verbose_name_plural = "KPI Work Responses"
+        indexes = [
+            models.Index(fields=["kpi_work", "-submitted_at"]),
+            models.Index(fields=["respondent", "status"]),
+        ]
+    
+    def __str__(self):
+        return f"Response to {self.kpi_work.task_name} by {self.respondent}"
+
+
+class KPIEntry(models.Model):
+    """Table for KPI entries with the requested columns."""
+
+    row = models.BigAutoField(primary_key=True)
+    company_name = models.CharField(max_length=200, blank=True, verbose_name="company_name")
+    season = models.CharField(max_length=50, blank=True, verbose_name="season")
+    personal_code = models.CharField(max_length=50, blank=True, verbose_name="personal code")
+    full_name = models.CharField(max_length=200, blank=True, verbose_name="full name")
+    role = models.CharField(max_length=100, blank=True, verbose_name="role")
+    direct_management = models.CharField(max_length=200, blank=True, verbose_name="direct management")
+    departman = models.CharField(max_length=200, blank=True, verbose_name="departman")
+    category = models.CharField(max_length=200, blank=True, verbose_name="categoty")
+
+    obj_weight = models.DecimalField(
+        max_digits=10, decimal_places=4, null=True, blank=True, verbose_name="obj weight"
+    )
+
+    kpi_en = models.CharField(max_length=250, blank=True, verbose_name="KPI En")
+    kpi_fa = models.CharField(max_length=250, blank=True, verbose_name="KPI Fa")
+    kpi_info = models.TextField(blank=True, verbose_name="kpi info")
+
+    target = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True, verbose_name="target"
+    )
+    kpi_weight = models.DecimalField(
+        max_digits=10, decimal_places=4, null=True, blank=True, verbose_name="KPI Weight"
+    )
+    kpi_achievement = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True, verbose_name="KPI Achievement"
+    )
+    score_achievement = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True, verbose_name="score Achievement"
+    )
+    score_achievement_alt = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True, verbose_name="Score Achievement"
+    )
+
+    entry_type = models.CharField(max_length=100, blank=True, verbose_name="Type")
+    sum_value = models.DecimalField(
+        max_digits=14, decimal_places=4, null=True, blank=True, verbose_name="Sum"
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "KPI Entry"
+        verbose_name_plural = "KPI Entries"
+        ordering = ["-row"]
+
+    def __str__(self):
+        return f"{self.row} - {self.company_name} - {self.full_name}"

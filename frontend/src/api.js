@@ -8,7 +8,7 @@ export const ACCESS_TOKEN = "token";
 const getBaseUrl = () => {
   // If we're in development, use the Vite environment variable
   if (import.meta.env.DEV) {
-    const devUrl = import.meta.env.VITE_API_URL || "http://localhost:8000/api/";
+    const devUrl = import.meta.env.VITE_API_URL || "http://localhost:3001/api/";
     return devUrl.endsWith("/") ? devUrl : `${devUrl}/`;
   }
   // In production, use the current hostname without port
