@@ -694,7 +694,11 @@ const KpiManagerReview = () => {
                             caseOwner: e.target.value,
                           }))
                         }
-                        className="w-40 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-40 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -729,7 +733,11 @@ const KpiManagerReview = () => {
                             obj_weight: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -764,7 +772,11 @@ const KpiManagerReview = () => {
                             KPIEn: e.target.value,
                           }))
                         }
-                        className="w-32 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-32 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -799,7 +811,11 @@ const KpiManagerReview = () => {
                             KPIFa: e.target.value,
                           }))
                         }
-                        className="w-32 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-32 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -834,7 +850,11 @@ const KpiManagerReview = () => {
                             KPI_Info: e.target.value,
                           }))
                         }
-                        className="w-40 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-40 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -869,7 +889,11 @@ const KpiManagerReview = () => {
                             target: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -904,7 +928,11 @@ const KpiManagerReview = () => {
                             KPI_weight: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-20 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -939,7 +967,11 @@ const KpiManagerReview = () => {
                             KPI_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -974,7 +1006,11 @@ const KpiManagerReview = () => {
                             Percentage_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -1009,7 +1045,11 @@ const KpiManagerReview = () => {
                             Score_Achievement: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -1044,7 +1084,11 @@ const KpiManagerReview = () => {
                             Type: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-20 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -1079,7 +1123,11 @@ const KpiManagerReview = () => {
                             Sum: e.target.value,
                           }))
                         }
-                        className="w-24 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-24 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -1114,7 +1162,11 @@ const KpiManagerReview = () => {
                             Status: e.target.value,
                           }))
                         }
-                        className="w-20 px-2 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs"
+                        className={`w-20 px-2 py-1 border rounded ${
+                          isLight
+                            ? "bg-white text-gray-900 border-gray-300"
+                            : "bg-gray-800 text-gray-200 border-gray-600"
+                        } text-xs`}
                       >
                         <option value="" className="text-gray-800">
                           All
@@ -1142,11 +1194,21 @@ const KpiManagerReview = () => {
                   <th className="px-2 py-1 text-gray-400"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 text-center">
+              <tbody
+                className={`divide-y ${
+                  isLight ? "divide-gray-200" : "divide-gray-700"
+                } text-center`}
+              >
                 {filteredEntries
                   .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                   .map((row, index) => (
-                    <tr className="bg-white hover:bg-gray-50 align-top">
+                    <tr
+                      className={`${
+                        isLight
+                          ? "bg-white hover:bg-gray-50"
+                          : "bg-gray-800 hover:bg-gray-700"
+                      } align-top`}
+                    >
                       <td className="px-2 py-2 text-gray-800">
                         {(currentPage - 1) * pageSize + index + 1}
                       </td>
@@ -1168,7 +1230,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Object weight"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1180,7 +1246,11 @@ const KpiManagerReview = () => {
                             handleChange(row.id, "KPIEn", e.target.value)
                           }
                           placeholder="KPI English"
-                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1193,7 +1263,11 @@ const KpiManagerReview = () => {
                             handleChange(row.id, "KPIFa", e.target.value)
                           }
                           placeholder="KPI Farsi"
-                          className="w-48 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1206,7 +1280,11 @@ const KpiManagerReview = () => {
                           }
                           placeholder="KPI info"
                           rows={2}
-                          className="w-56 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className={`w-56 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1225,7 +1303,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Target"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1244,7 +1326,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="KPI weight"
-                          className="w-20 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className={`w-20 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1263,7 +1349,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="KPI Achievement"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1282,7 +1372,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="% Achievement"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg bg-gray-900 text-gray-200"
+                          className={`w-28 px-2 py-1 border rounded-lg ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-900 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1301,7 +1395,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Score"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg bg-gray-900 text-gray-200"
+                          className={`w-28 px-2 py-1 border rounded-lg ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-900 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1313,7 +1411,11 @@ const KpiManagerReview = () => {
                             handleChange(row.id, "Type", e.target.value)
                           }
                           placeholder="Type"
-                          className="w-24 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className={`w-24 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
@@ -1332,7 +1434,11 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Sum"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
                           disabled={row.Status === "Confirmed"}
                         />
                       </td>
