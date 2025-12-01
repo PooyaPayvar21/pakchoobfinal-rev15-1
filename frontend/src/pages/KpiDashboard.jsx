@@ -424,11 +424,11 @@ function KpiDashboard() {
                           />
                           <YAxis
                             tick={{
-                              fill: "#d1d5db",
+                              fill: "#1F2937",
                               fontSize: 13,
                               fontWeight: 500,
                             }}
-                            axisLine={{ stroke: "#4b5563", strokeWidth: 2 }}
+                            axisLine={{ stroke: "#1F2937", strokeWidth: 2 }}
                             tickLine={{ stroke: "#4b5563" }}
                             label={{
                               value: "تعداد KPI",

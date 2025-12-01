@@ -30,6 +30,9 @@ import KPIPersonEntry from "./pages/KPIPersonEntry";
 import KpiUserInfo from "./pages/KpiUserInfo";
 import KpiManagementRelation from "./pages/KpiManagementRelation";
 import KpiManagerReview from "./pages/KpiManagerReview";
+import KpiPeopleWorks from "./pages/KpiPeopleWorks";
+import KpiPersonReport from "./pages/KpiPersonReport";
+import KpiReport from "./pages/KpiReport";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./pages/Settings";
 import NotificationsPage from "./pages/Notifications";
@@ -86,7 +89,7 @@ function App() {
 
   return (
     <div
-      key={themeVersion}
+      data-theme-version={themeVersion}
       className={`${
         isLight ? "bg-gray-100 text-gray-900" : "bg-gray-950 text-gray-100"
       } min-h-screen`}
@@ -174,6 +177,30 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="management">
                   <KpiManagerReview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kpipeopleworks"
+              element={
+                <ProtectedRoute>
+                  <KpiPeopleWorks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kpi/person/:personal_code"
+              element={
+                <ProtectedRoute>
+                  <KpiPersonReport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kpi/kpi/:kpiName"
+              element={
+                <ProtectedRoute>
+                  <KpiReport />
                 </ProtectedRoute>
               }
             />

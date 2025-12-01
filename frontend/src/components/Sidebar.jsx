@@ -29,6 +29,12 @@ const Sidebar = () => {
         href: "/kpidashboard",
       },
       {
+        name: "KPI Overview",
+        icon: BarChart2,
+        color: "#F59E0B",
+        href: "/kpipeopleworks",
+      },
+      {
         name: "User Info",
         icon: PersonStanding,
         color: "#8B5CF6",

@@ -51,6 +51,7 @@ function Header({ title }) {
               <Sparkles size={18} />
             </span>
             <h1
+              dir="rtl"
               className={`text-xl sm:text-2xl font-semibold tracking-tight ${
                 isLight ? "text-gray-900" : "text-gray-100"
               }`}

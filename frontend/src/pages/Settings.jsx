@@ -12,18 +12,22 @@ const Settings = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationSound, setNotificationSound] = useState(true);
   const [language, setLanguage] = useState("fa");
-  const [theme, setTheme] = useState("dark");
-  const isLight = document.documentElement.classList.contains("light");
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("theme_preference");
+    if (stored === "light" || stored === "dark") return stored;
+    return document.documentElement.classList.contains("light")
+      ? "light"
+      : "dark";
+  });
+  const isLight = theme === "light";
 
   useEffect(() => {
     const ne = localStorage.getItem("notifications_enabled");
     const ns = localStorage.getItem("notifications_sound");
     const lang = localStorage.getItem("language_preference");
-    const th = localStorage.getItem("theme_preference");
     if (ne !== null) setNotificationsEnabled(ne !== "false");
     if (ns !== null) setNotificationSound(ns !== "false");
     if (lang) setLanguage(lang);
-    if (th) setTheme(th);
   }, []);
 
   useEffect(() => {
@@ -45,9 +49,7 @@ const Settings = () => {
     } else {
       document.documentElement.classList.remove("light");
     }
-    try {
-      window.dispatchEvent(new CustomEvent("theme-change", { detail: theme }));
-    } catch {}
+    window.dispatchEvent(new CustomEvent("theme-change", { detail: theme }));
   }, [theme]);
 
   const handleSubmit = async (e) => {
@@ -232,7 +234,7 @@ const Settings = () => {
                 className="h-5 w-5"
               />
             </label>
-            <label className="flex items_center justify-between">
+            <label className="flex items-center justify-between">
               <span
                 className={`${
                   isLight ? "text-gray-900" : "text-gray-300"
@@ -303,7 +305,7 @@ const Settings = () => {
               <select
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
-                className={`w-full rounded-lg px-4 py-2 outline-none focus-border-blue-500 border-2 ${
+                className={`w-full rounded-lg px-4 py-2 outline-none focus:border-blue-500 border-2 ${
                   isLight
                     ? "bg-white text-gray-900 border-gray-300"
                     : "bg-gray-800/50 text-white border-white/20"
