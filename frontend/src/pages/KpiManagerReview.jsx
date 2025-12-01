@@ -466,7 +466,7 @@ const KpiManagerReview = () => {
 
   return (
     <div className="flex-1 overflow-auto relative z-10">
-      <Header title={"بازبینی مدیر مستقیم KPI"} />
+      <Header title={"بازبینی مدیر مستقیم"} />
       <ToastContainer position="top-center" autoClose={1500} rtl={true} />
       <main className="w-full lg:px-8 mb-10" dir="rtl">
         <div className="mt-8 px-4">
@@ -682,7 +682,11 @@ const KpiManagerReview = () => {
                   <th className="px-2 py-2 text-gray-400">Status</th>
                   <th className="px-2 py-2 text-gray-400">Actions</th>
                 </tr>
-                <tr className="text-center bg-gray-900">
+                <tr
+                  className={`text-center ${
+                    isLight ? "bg-gray-300" : "bg-gray-900"
+                  }`}
+                >
                   <th className="px-2 py-1 text-gray-400"></th>
                   <th className="px-2 py-1">
                     <div className="flex items-center justify-center gap-1">
@@ -1196,7 +1200,7 @@ const KpiManagerReview = () => {
               </thead>
               <tbody
                 className={`divide-y ${
-                  isLight ? "divide-gray-200" : "divide-gray-700"
+                  isLight ? "divide-gray-300" : "divide-gray-700"
                 } text-center`}
               >
                 {filteredEntries
@@ -1205,14 +1209,22 @@ const KpiManagerReview = () => {
                     <tr
                       className={`${
                         isLight
-                          ? "bg-white hover:bg-gray-50"
+                          ? "bg-white hover:bg-gray-200"
                           : "bg-gray-800 hover:bg-gray-700"
                       } align-top`}
                     >
-                      <td className="px-2 py-2 text-gray-800">
+                      <td
+                        className={`px-2 py-2  ${
+                          isLight ? "text-gray-700" : "text-gray-300"
+                        }`}
+                      >
                         {(currentPage - 1) * pageSize + index + 1}
                       </td>
-                      <td className="px-2 py-2 text-gray-700">
+                      <td
+                        className={`px-2 py-2  ${
+                          isLight ? "text-gray-700" : "text-gray-300"
+                        }`}
+                      >
                         {row.full_name} ({row.personal_code})
                       </td>
                       <td className="px-2 py-2">
@@ -1372,10 +1384,10 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="% Achievement"
-                          className={`w-28 px-2 py-1 border rounded-lg ${
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                             isLight
                               ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-900 text-gray-200 border-gray-600"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
                           }`}
                           disabled={row.Status === "Confirmed"}
                         />
@@ -1395,10 +1407,10 @@ const KpiManagerReview = () => {
                             )
                           }
                           placeholder="Score"
-                          className={`w-28 px-2 py-1 border rounded-lg ${
+                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
                             isLight
                               ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-900 text-gray-200 border-gray-600"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
                           }`}
                           disabled={row.Status === "Confirmed"}
                         />
@@ -1450,7 +1462,7 @@ const KpiManagerReview = () => {
                               ? "bg-green-700 text-green-100"
                               : row.Status === "Editable"
                               ? "bg-yellow-700 text-yellow-100"
-                              : "bg-gray-700 text-gray-200")
+                              : "bg-gray-300 text-gray-900")
                           }
                         >
                           {row.Status || "-"}
