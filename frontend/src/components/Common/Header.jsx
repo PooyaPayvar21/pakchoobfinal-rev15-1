@@ -63,7 +63,7 @@ function Header({ title }) {
         <div className="absolute top-2 right-2 flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className={`p-2 rounded-lg transition-colors border ${
+            className={`p-2 rounded-lg transition-colors border cursor-pointer ${
               isLight
                 ? "border-gray-200 hover:bg-gray-200"
                 : "border-gray-700/60 hover:bg-gray-700/60"
@@ -79,7 +79,7 @@ function Header({ title }) {
           </button>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="relative p-2 rounded-lg hover:bg-gray-700/60 transition-colors border border-gray-700/60"
+            className="relative p-2 rounded-lg hover:bg-gray-700/60 transition-colors border border-gray-700/60 cursor-pointer"
             aria-label="Notifications"
           >
             <Bell

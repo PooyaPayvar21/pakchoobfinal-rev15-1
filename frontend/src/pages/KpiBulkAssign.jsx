@@ -383,7 +383,7 @@ function KpiBulkAssign() {
         >
           <button
             onClick={() => navigate("/kpipeopleworks")}
-            className={`px-3 py-2 rounded mb-2 ${
+            className={`px-3 py-2 rounded mb-2 cursor-pointer ${
               isLight
                 ? "bg-gray-200 hover:bg-gray-300"
                 : "bg-gray-600 hover:bg-gray-500"
