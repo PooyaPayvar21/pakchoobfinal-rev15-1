@@ -35,15 +35,58 @@ function KpiPersonReport() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const resp = await kpiApi.fetchSubordinateEntries({
-          manager: managerName,
-          category: "All",
-          departman: managerDepartman,
-          personal_code,
-          not_managed: false,
-          outside_department: false,
+        const attempts = [
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            personal_code,
+            not_managed: false,
+            outside_department: false,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            personal_code,
+            not_managed: true,
+            outside_department: false,
+          },
+          {
+            manager: "",
+            category: "All",
+            departman: managerDepartman,
+            personal_code,
+            not_managed: false,
+            outside_department: true,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: "",
+            personal_code,
+            not_managed: false,
+            outside_department: true,
+          },
+        ];
+        const results = await Promise.all(
+          attempts.map((params) =>
+            kpiApi
+              .fetchSubordinateEntries(params)
+              .then((resp) => resp)
+              .catch(() => null)
+          )
+        );
+        const taskMap = new Map();
+        results.forEach((resp) => {
+          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+          arr.forEach((t) => {
+            const key = t.row ?? t.id;
+            if (key == null) return;
+            if (!taskMap.has(key)) taskMap.set(key, t);
+          });
         });
-        const tasks = Array.isArray(resp) ? resp : resp?.tasks || [];
+        const tasks = Array.from(taskMap.values());
         const mapped = tasks
           .filter((t) => String(t.personal_code) === String(personal_code))
           .map((t) => ({
@@ -137,6 +180,70 @@ function KpiPersonReport() {
     return m;
   }, [filteredEntries]);
 
+  const getQuarter = useCallback((e) => {
+    const s = String(e.season || "")
+      .toUpperCase()
+      .trim();
+    if (/^Q[1-4]$/.test(s)) return s;
+    if (/^[1-4]$/.test(s)) return `Q${s}`;
+    const d = new Date(e.created_at || 0);
+    if (!Number.isNaN(d.getTime())) {
+      const m = d.getMonth() + 1;
+      const q = Math.ceil(m / 3);
+      return `Q${q}`;
+    }
+    return "";
+  }, []);
+
+  const kpiQuarterRows = useMemo(() => {
+    const map = new Map();
+    filteredEntries.forEach((e) => {
+      const name = String(e.KPIFa || "");
+      const q = getQuarter(e);
+      if (!name || !/^Q[1-3]$/.test(q)) return;
+      const g = map.get(name) || {};
+      g[q] = e;
+      map.set(name, g);
+    });
+    return map;
+  }, [filteredEntries, getQuarter]);
+
+  const kpiQuarterAchievements = useMemo(() => {
+    const map = new Map();
+    filteredEntries.forEach((e) => {
+      const name = String(e.KPIFa || "");
+      if (!name) return;
+      const q = getQuarter(e);
+      if (!/^Q[1-3]$/.test(q)) return;
+      const dt = new Date(e.created_at || 0).getTime() || 0;
+      const g = map.get(name) || {
+        name,
+        q1: null,
+        q2: null,
+        q3: null,
+        _d1: 0,
+        _d2: 0,
+        _d3: 0,
+      };
+      if (q === "Q1" && dt >= g._d1) {
+        g.q1 = e.KPI_Achievement;
+        g._d1 = dt;
+      }
+      if (q === "Q2" && dt >= g._d2) {
+        g.q2 = e.KPI_Achievement;
+        g._d2 = dt;
+      }
+      if (q === "Q3" && dt >= g._d3) {
+        g.q3 = e.KPI_Achievement;
+        g._d3 = dt;
+      }
+      map.set(name, g);
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  }, [filteredEntries, getQuarter]);
+
   const stats = useMemo(() => {
     const count = filteredEntries.length;
     const avgPct = count
@@ -159,6 +266,10 @@ function KpiPersonReport() {
   }, [filteredEntries]);
 
   const isLight = document.documentElement.classList.contains("light");
+  const [editValues, setEditValues] = useState({});
+  const [savingRow, setSavingRow] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
+  const [selectedQuarter, setSelectedQuarter] = useState({});
   const formatDate = (v) => {
     if (!v) return "";
     const d = new Date(v);
@@ -173,7 +284,7 @@ function KpiPersonReport() {
       <ToastContainer position="top-center" autoClose={1500} rtl={true} />
       <main className="w-full lg:px-8 mb-10 mt-10" dir="rtl">
         <div
-          className={`w-full max-w-full mx-auto rounded-lg shadow p-4 cursor-pointer ${
+          className={`w-full max-w-full mx-auto rounded-lg shadow p-4  ${
             isLight ? "bg-white" : "bg-gray-800"
           }`}
         >
@@ -247,6 +358,16 @@ function KpiPersonReport() {
               }`}
             >
               بازگشت
+            </button>
+            <button
+              onClick={() => navigate(`/kpimanagerreview?pc=${personal_code}`)}
+              className={`px-3 py-2 rounded ${
+                isLight
+                  ? "bg-purple-600 text-white hover:bg-purple-700"
+                  : "bg-purple-500 text-white hover:bg-purple-600"
+              }`}
+            >
+              بازبینی مدیر
             </button>
             <button
               onClick={() => {
@@ -343,41 +464,143 @@ function KpiPersonReport() {
                 )
                 .map((e) => (
                   <li key={e.id} className="py-3 px-2">
-                    <div
-                      className={isLight ? "text-gray-900" : "text-gray-100"}
-                    >
-                      <span>{e.KPIFa}</span>
-                      <span
-                        className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                          isLight
-                            ? "bg-gray-200 text-gray-700"
-                            : "bg-gray-600 text-gray-200"
-                        }`}
-                      >
-                        {kpiEntryCounts.get(String(e.KPIFa)) || 0}
-                      </span>
-                    </div>
-                    <div
-                      className={isLight ? "text-gray-600" : "text-gray-300"}
-                    >
-                      {e.KPI_Info}
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="flex items-center justify-between gap-3">
                       <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
+                        className={isLight ? "text-gray-900" : "text-gray-100"}
                       >
-                        کوارتر: {e.season || ""}
+                        <span>{e.KPIFa}</span>
+                        <span
+                          className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                            isLight
+                              ? "bg-gray-200 text-gray-700"
+                              : "bg-gray-600 text-gray-200"
+                          }`}
+                        >
+                          {getQuarter(e) || ""}
+                        </span>
                       </div>
-
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          }
+                        >
+                          امتیاز فعلی: {e.KPI_Achievement ?? "-"}
+                        </span>
+                        <select
+                          value={selectedQuarter[e.id] || getQuarter(e) || "Q1"}
+                          onChange={(ev) =>
+                            setSelectedQuarter((prev) => ({
+                              ...prev,
+                              [e.id]: ev.target.value,
+                            }))
+                          }
+                          className={`px-2 py-1 rounded border text-sm ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
+                        >
+                          <option value="Q1">Q1</option>
+                          <option value="Q2">Q2</option>
+                          <option value="Q3">Q3</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={
+                            editValues[e.id] ??
+                            (() => {
+                              const name = String(e.KPIFa || "");
+                              const q =
+                                selectedQuarter[e.id] || getQuarter(e) || "Q1";
+                              const agg = kpiQuarterAchievements.find(
+                                (it) => it.name === name
+                              );
+                              if (!agg) return e.KPI_Achievement ?? "";
+                              if (q === "Q1") return agg.q1 ?? "";
+                              if (q === "Q2") return agg.q2 ?? "";
+                              return agg.q3 ?? "";
+                            })()
+                          }
+                          onChange={(ev) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              [e.id]: ev.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 rounded border text-sm ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          }`}
+                        />
+                        <button
+                          onClick={async () => {
+                            try {
+                              setSavingRow(e.id);
+                              const val = editValues[e.id] ?? "";
+                              const name = String(e.KPIFa || "");
+                              const q =
+                                selectedQuarter[e.id] || getQuarter(e) || "Q1";
+                              const target = (kpiQuarterRows.get(name) || {})[
+                                q
+                              ];
+                              if (!target) {
+                                toast.error("رکورد کوارتر انتخابی یافت نشد");
+                                return;
+                              }
+                              await kpiApi.updateKPIEntryRow(target.id, {
+                                kpi_achievement: val,
+                              });
+                              setEntries((prev) =>
+                                prev.map((x) =>
+                                  x.id === target.id
+                                    ? { ...x, KPI_Achievement: val }
+                                    : x
+                                )
+                              );
+                              toast.success("امتیاز ثبت شد");
+                            } catch {
+                              toast.error("ثبت امتیاز با خطا مواجه شد");
+                            } finally {
+                              setSavingRow(null);
+                            }
+                          }}
+                          disabled={savingRow === e.id}
+                          className={`px-3 py-1 rounded text-sm ${
+                            isLight
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-blue-500 text-white hover:bg-blue-600"
+                          }`}
+                        >
+                          ثبت
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                       <div
                         className={isLight ? "text-gray-700" : "text-gray-300"}
                       >
-                        تاریخ: {formatDate(e.created_at)}
+                        Q1:{" "}
+                        {kpiQuarterAchievements.find(
+                          (it) => it.name === String(e.KPIFa)
+                        )?.q1 ?? "-"}
                       </div>
                       <div
                         className={isLight ? "text-gray-700" : "text-gray-300"}
                       >
-                        امتیاز: {e.kpi_achievement}
+                        Q2:{" "}
+                        {kpiQuarterAchievements.find(
+                          (it) => it.name === String(e.KPIFa)
+                        )?.q2 ?? "-"}
+                      </div>
+                      <div
+                        className={isLight ? "text-gray-700" : "text-gray-300"}
+                      >
+                        Q3:{" "}
+                        {kpiQuarterAchievements.find(
+                          (it) => it.name === String(e.KPIFa)
+                        )?.q3 ?? "-"}
                       </div>
                     </div>
                   </li>

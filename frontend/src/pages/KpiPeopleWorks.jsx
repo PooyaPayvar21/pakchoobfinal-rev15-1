@@ -40,17 +40,67 @@ const KpiPeopleWorks = () => {
       }
       setLoadingEntries(true);
       try {
-        const response = await kpiApi.fetchSubordinateEntries({
-          manager: managerName,
-          category: "All",
-          departman: managerDepartman,
-          not_managed: false,
-          outside_department: false,
+        const attempts = [
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: false,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: true,
+            outside_department: false,
+          },
+          {
+            manager: "",
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: true,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: "",
+            not_managed: false,
+            outside_department: true,
+          },
+        ];
+        const results = await Promise.all(
+          attempts.map((params) =>
+            kpiApi
+              .fetchSubordinateEntries(params)
+              .then((resp) => resp)
+              .catch(() => null)
+          )
+        );
+        const taskMap = new Map();
+        results.forEach((resp) => {
+          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+          arr.forEach((t) => {
+            const key = t.row ?? t.id;
+            if (key == null) return;
+            if (!taskMap.has(key)) taskMap.set(key, t);
+          });
         });
-        const tasks = Array.isArray(response)
-          ? response
-          : response?.tasks || [];
-        const mapped = tasks.map((t) => ({
+        const tasks = Array.from(taskMap.values());
+        const managerFull = String(managerName || "").trim();
+        const filteredByManager = tasks.filter((t) => {
+          const dm = String(t.direct_management || "").trim();
+          const mgr = String(t.manager || t.manager_name || "").trim();
+          const fn = String(t.full_name || "").trim();
+          const role = String(t.role || "").trim();
+          if (dm && dm === managerFull) return true;
+          if (mgr && mgr === managerFull) return true;
+          if (fn === managerFull) return false;
+          if (role && /مدیر/i.test(role)) return false;
+          return true;
+        });
+        const mapped = filteredByManager.map((t) => ({
           id: t.row,
           row: t.row,
           obj_weight: t.obj_weight || "",
@@ -72,6 +122,9 @@ const KpiPeopleWorks = () => {
           Sum: t.sum_value || "",
           personal_code: t.personal_code || "",
           full_name: fixText(t.full_name || ""),
+          direct_management: t.direct_management || "",
+          role: t.role || "",
+          manager_name: t.manager || t.manager_name || "",
           created_at: t.created_at || t.createdAt || null,
           season: t.season || t.Season || null,
         }));
@@ -284,7 +337,7 @@ const KpiPeopleWorks = () => {
               </div>
               <div className="mb-3 flex items-center gap-2" dir="rtl">
                 <button
-                  onClick={() => navigate("/kpidataentry")}
+                  onClick={() => navigate("/kpimanagerreview")}
                   className={`px-3 py-2 rounded cursor-pointer ${
                     isLight
                       ? "bg-green-600 text-white hover:bg-green-700"

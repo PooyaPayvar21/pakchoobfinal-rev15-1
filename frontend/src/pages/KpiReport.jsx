@@ -36,14 +36,54 @@ function KpiReport() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const resp = await kpiApi.fetchSubordinateEntries({
-          manager: managerName,
-          category: "All",
-          departman: managerDepartman,
-          not_managed: false,
-          outside_department: false,
+        const attempts = [
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: false,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: true,
+            outside_department: false,
+          },
+          {
+            manager: "",
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: true,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: "",
+            not_managed: false,
+            outside_department: true,
+          },
+        ];
+        const results = await Promise.all(
+          attempts.map((params) =>
+            kpiApi
+              .fetchSubordinateEntries(params)
+              .then((resp) => resp)
+              .catch(() => null)
+          )
+        );
+        const taskMap = new Map();
+        results.forEach((resp) => {
+          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+          arr.forEach((t) => {
+            const key = t.row ?? t.id;
+            if (key == null) return;
+            if (!taskMap.has(key)) taskMap.set(key, t);
+          });
         });
-        const tasks = Array.isArray(resp) ? resp : resp?.tasks || [];
+        const tasks = Array.from(taskMap.values());
         const mapped = tasks
           .filter(
             (t) => String(t.kpi_fa || "").trim() === decodeURIComponent(kpiName)
@@ -160,6 +200,71 @@ function KpiReport() {
     return m;
   }, [filteredEntries]);
 
+  const getQuarter = useCallback((e) => {
+    const s = String(e.season || "")
+      .toUpperCase()
+      .trim();
+    if (/^Q[1-4]$/.test(s)) return s;
+    if (/^[1-4]$/.test(s)) return `Q${s}`;
+    const d = new Date(e.created_at || 0);
+    if (!Number.isNaN(d.getTime())) {
+      const m = d.getMonth() + 1;
+      const q = Math.ceil(m / 3);
+      return `Q${q}`;
+    }
+    return "";
+  }, []);
+
+  const personQuarterRows = useMemo(() => {
+    const map = new Map();
+    filteredEntries.forEach((e) => {
+      const key = String(e.personal_code || "");
+      const q = getQuarter(e);
+      if (!key || !/^Q[1-3]$/.test(q)) return;
+      const g = map.get(key) || {};
+      g[q] = e;
+      map.set(key, g);
+    });
+    return map;
+  }, [filteredEntries, getQuarter]);
+
+  const personQuarterAchievements = useMemo(() => {
+    const map = new Map();
+    filteredEntries.forEach((e) => {
+      const key = String(e.personal_code || "");
+      if (!key) return;
+      const q = getQuarter(e);
+      if (!/^Q[1-3]$/.test(q)) return;
+      const dt = new Date(e.created_at || 0).getTime() || 0;
+      const g = map.get(key) || {
+        personal_code: e.personal_code,
+        full_name: e.full_name,
+        q1: null,
+        q2: null,
+        q3: null,
+        _d1: 0,
+        _d2: 0,
+        _d3: 0,
+      };
+      if (q === "Q1" && dt >= g._d1) {
+        g.q1 = e.KPI_Achievement;
+        g._d1 = dt;
+      }
+      if (q === "Q2" && dt >= g._d2) {
+        g.q2 = e.KPI_Achievement;
+        g._d2 = dt;
+      }
+      if (q === "Q3" && dt >= g._d3) {
+        g.q3 = e.KPI_Achievement;
+        g._d3 = dt;
+      }
+      map.set(key, g);
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.full_name.localeCompare(b.full_name)
+    );
+  }, [filteredEntries, getQuarter]);
+
   const stats = useMemo(() => {
     const count = filteredEntries.length;
     const peopleCount = new Set(filteredEntries.map((e) => e.personal_code))
@@ -184,6 +289,9 @@ function KpiReport() {
   }, [filteredEntries]);
 
   const isLight = document.documentElement.classList.contains("light");
+  const [editValues, setEditValues] = useState({});
+  const [savingRow, setSavingRow] = useState(null);
+  const [selectedQuarter, setSelectedQuarter] = useState({});
   const formatDate = (v) => {
     if (!v) return "";
     const d = new Date(v);
@@ -290,6 +398,16 @@ function KpiReport() {
               بازگشت
             </button>
             <button
+              onClick={() => navigate(`/kpimanagerreview?kpi=${encodeURIComponent(kpiName)}`)}
+              className={`px-3 py-2 rounded ${
+                isLight
+                  ? "bg-purple-600 text-white hover:bg-purple-700"
+                  : "bg-purple-500 text-white hover:bg-purple-600"
+              }`}
+            >
+              بازبینی مدیر
+            </button>
+            <button
               onClick={() => {
                 setSeasonFilter("");
                 setStatusFilter("");
@@ -383,84 +501,123 @@ function KpiReport() {
             </div>
           ) : (
             <ul className="divide-y divide-gray-300">
-              {filteredEntries
-                .slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-                )
-                .map((e) => (
-                  <li key={e.id} className="py-3 px-2">
-                    <div
-                      className={isLight ? "text-gray-900" : "text-gray-100"}
+              {personQuarterAchievements.map((p) => (
+                <li key={p.personal_code} className="py-3 px-2">
+                  <div className={isLight ? "text-gray-900" : "text-gray-100"}>
+                    <span>
+                      {p.full_name} ({p.personal_code})
+                    </span>
+                    <span
+                      className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                        isLight
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-gray-600 text-gray-200"
+                      }`}
                     >
-                      <span>
-                        {e.full_name} ({e.personal_code})
-                      </span>
-                      <span
-                        className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                          isLight
-                            ? "bg-gray-200 text-gray-700"
-                            : "bg-gray-600 text-gray-200"
-                        }`}
-                      >
-                        {personEntryCounts.get(String(e.personal_code)) || 0}
-                      </span>
+                      {personEntryCounts.get(String(p.personal_code)) || 0}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div
+                      className={isLight ? "text-gray-700" : "text-gray-300"}
+                    >
+                      Q1: {p.q1 ?? "-"}
                     </div>
                     <div
-                      className={isLight ? "text-gray-600" : "text-gray-300"}
+                      className={isLight ? "text-gray-700" : "text-gray-300"}
                     >
-                      {e.KPI_Info}
+                      Q2: {p.q2 ?? "-"}
                     </div>
-                    <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        فصل: {e.season || ""}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        وضعیت: {e.Status}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        نوع: {e.Type}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        تاریخ: {formatDate(e.created_at)}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        هدف: {e.target}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        وزن KPI: {e.KPI_weight}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        ٪ پیشرفت: {e.Percentage_Achievement}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        امتیاز: {e.Score_Achievement}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        جمع: {e.Sum}
-                      </div>
+                    <div
+                      className={isLight ? "text-gray-700" : "text-gray-300"}
+                    >
+                      Q3: {p.q3 ?? "-"}
                     </div>
-                  </li>
-                ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 justify-end">
+                    <select
+                      value={selectedQuarter[p.personal_code] || "Q1"}
+                      onChange={(ev) =>
+                        setSelectedQuarter((prev) => ({
+                          ...prev,
+                          [p.personal_code]: ev.target.value,
+                        }))
+                      }
+                      className={`px-2 py-1 rounded border text-sm ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-800 text-gray-200 border-gray-600"
+                      }`}
+                    >
+                      <option value="Q1">Q1</option>
+                      <option value="Q2">Q2</option>
+                      <option value="Q3">Q3</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={
+                        editValues[p.personal_code] ??
+                        (() => {
+                          const q = selectedQuarter[p.personal_code] || "Q1";
+                          if (q === "Q1") return p.q1 ?? "";
+                          if (q === "Q2") return p.q2 ?? "";
+                          return p.q3 ?? "";
+                        })()
+                      }
+                      onChange={(ev) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          [p.personal_code]: ev.target.value,
+                        }))
+                      }
+                      className={`w-24 px-2 py-1 rounded border text-sm ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-800 text-gray-200 border-gray-600"
+                      }`}
+                    />
+                    <button
+                      onClick={async () => {
+                        try {
+                          setSavingRow(p.personal_code);
+                          const val = editValues[p.personal_code] ?? "";
+                          const q = selectedQuarter[p.personal_code] || "Q1";
+                          const target = (personQuarterRows.get(
+                            String(p.personal_code)
+                          ) || {})[q];
+                          if (!target) {
+                            toast.error("رکورد کوارتر انتخابی یافت نشد");
+                            return;
+                          }
+                          await kpiApi.updateKPIEntryRow(target.id, {
+                            kpi_achievement: val,
+                          });
+                          setEntries((prev) =>
+                            prev.map((x) =>
+                              x.id === target.id
+                                ? { ...x, KPI_Achievement: val }
+                                : x
+                            )
+                          );
+                          toast.success("امتیاز ثبت شد");
+                        } catch {
+                          toast.error("ثبت امتیاز با خطا مواجه شد");
+                        } finally {
+                          setSavingRow(null);
+                        }
+                      }}
+                      disabled={savingRow === p.personal_code}
+                      className={`px-3 py-1 rounded text-sm ${
+                        isLight
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-blue-500 text-white hover:bg-blue-600"
+                      }`}
+                    >
+                      ثبت
+                    </button>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </div>

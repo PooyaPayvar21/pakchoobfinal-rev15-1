@@ -20,7 +20,7 @@ function Start() {
               outline-[none] rounded-[40px] [box-shadow:0_0_10px_rgba(0,_0,_0,_0.1)] 
               cursor-pointer text-[16px] text-[#333] font-bold mt-[45px] mx-[0] mb-[15px]"
             >
-              نت
+              CEO
             </button>
             <button
               type="button"
@@ -32,7 +32,7 @@ function Start() {
                rounded-[40px] [box-shadow:0_0_10px_rgba(0,_0,_0,_0.1)] 
                cursor-pointer text-[16px] text-[#333] font-bold mt-[45px] mx-[0] mb-[15px]"
             >
-              فنی
+              Departman
             </button>
             <button
               type="button"
@@ -43,7 +43,7 @@ function Start() {
               outline-[none] rounded-[40px] [box-shadow:0_0_10px_rgba(0,_0,_0,_0.1)] 
               cursor-pointer text-[16px] text-[#333] font-bold mt-[45px] mx-[0] mb-[15px]"
             >
-              تولید
+              PM
             </button>
           </div>
         </form>

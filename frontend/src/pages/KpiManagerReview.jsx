@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import Header from "../components/Common/Header";
 import { kpiApi } from "../services/kpiApi";
 
 const KpiManagerReview = () => {
+  const [searchParams] = useSearchParams();
   const managerName = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
@@ -29,7 +31,9 @@ const KpiManagerReview = () => {
     Sum: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
   const pageSize = 10;
+  const [activeUser, setActiveUser] = useState(null);
   const managerDepartman = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
@@ -67,47 +71,67 @@ const KpiManagerReview = () => {
       return;
     }
     try {
-      console.log("[KpiManagerReview] Fetching entries with:", {
-        manager: managerName,
-        category,
-        departman: managerDepartman,
+      const attempts = [
+        {
+          manager: managerName,
+          category,
+          departman: managerDepartman,
+          not_managed: false,
+          outside_department: false,
+        },
+        {
+          manager: managerName,
+          category,
+          departman: managerDepartman,
+          not_managed: true,
+          outside_department: false,
+        },
+        {
+          manager: "",
+          category,
+          departman: managerDepartman,
+          not_managed: false,
+          outside_department: true,
+        },
+        {
+          manager: managerName,
+          category,
+          departman: "",
+          not_managed: false,
+          outside_department: true,
+        },
+      ];
+      const results = await Promise.all(
+        attempts.map((params) =>
+          kpiApi
+            .fetchSubordinateEntries(params)
+            .then((resp) => resp)
+            .catch(() => null)
+        )
+      );
+      const taskMap = new Map();
+      results.forEach((resp) => {
+        const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+        arr.forEach((t) => {
+          const key = t.row ?? t.id;
+          if (key == null) return;
+          if (!taskMap.has(key)) taskMap.set(key, t);
+        });
       });
-      const response = await kpiApi.fetchSubordinateEntries({
-        manager: managerName,
-        category,
-        departman: managerDepartman,
-        not_managed: false,
-        outside_department: false,
+      const tasks = Array.from(taskMap.values());
+      const managerFull = String(managerName || "").trim();
+      const filteredByManager = tasks.filter((t) => {
+        const dm = String(t.direct_management || "").trim();
+        const mgr = String(t.manager || t.manager_name || "").trim();
+        const fn = String(t.full_name || "").trim();
+        const role = String(t.role || "").trim();
+        if (dm && dm === managerFull) return true;
+        if (mgr && mgr === managerFull) return true;
+        if (fn === managerFull) return false;
+        if (role && /مدیر/i.test(role)) return false;
+        return true;
       });
-      const tasks = Array.isArray(response) ? response : response?.tasks || [];
-      console.log("[KpiManagerReview] Received tasks:", tasks.length, tasks);
-      if (response?.debug) {
-        console.log("[KpiManagerReview] Debug info:", response.debug);
-        if (tasks.length === 0 && response.debug.entries_with_manager === 0) {
-          console.warn(
-            "[KpiManagerReview] No entries found with manager name. Sample managers in DB:",
-            response.debug.sample_direct_managements
-          );
-          if (response.debug.entries_in_department !== undefined) {
-            console.warn(
-              `[KpiManagerReview] Found ${response.debug.entries_in_department} entries in department "${managerDepartman}"`
-            );
-            if (response.debug.sample_users_in_department) {
-              console.warn(
-                "[KpiManagerReview] Sample users in department:",
-                response.debug.sample_users_in_department
-              );
-            }
-            if (response.debug.direct_managements_in_department) {
-              console.warn(
-                "[KpiManagerReview] Direct management values in this department:",
-                response.debug.direct_managements_in_department
-              );
-            }
-          }
-        }
-      }
-      const mapped = tasks.map((t) => ({
+      const mapped = filteredByManager.map((t) => ({
         id: t.row,
         row: t.row,
         obj_weight: t.obj_weight || "",
@@ -130,6 +154,9 @@ const KpiManagerReview = () => {
         Sum: t.sum_value || "",
         personal_code: t.personal_code || "",
         full_name: t.full_name || "",
+        direct_management: t.direct_management || "",
+        role: t.role || "",
+        manager_name: t.manager || t.manager_name || "",
       }));
       setEntries(mapped);
       setCurrentPage(1);
@@ -144,6 +171,18 @@ const KpiManagerReview = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [managerName, category, managerDepartman]);
+
+  useEffect(() => {
+    const pc = searchParams.get("pc");
+    if (pc) {
+      setActiveUser(pc);
+    }
+    const kpi = searchParams.get("kpi");
+    if (kpi) {
+      // ensure table can render without selecting a user when KPI is provided
+      setActiveUser((prev) => prev || "__kpi__");
+    }
+  }, [searchParams]);
 
   const handleChange = (id, name, value) => {
     // Prevent any changes if the row is confirmed
@@ -207,6 +246,54 @@ const KpiManagerReview = () => {
     }
   };
 
+  const handleAddRow = async () => {
+    try {
+      if (!activeUser) {
+        toast.error("ابتدا کاربر را انتخاب کنید");
+        return;
+      }
+      const candidate = entries.find(
+        (e) => String(e.personal_code) === String(activeUser)
+      );
+      if (!candidate) {
+        toast.error("کاربر انتخاب شده یافت نشد");
+        return;
+      }
+
+      const payload = {
+        personal_code: candidate.personal_code,
+        full_name: candidate.full_name || "",
+        company_name: "",
+        role: candidate.role || "",
+        direct_management: candidate.direct_management || managerName || "",
+        departman: candidate.departman || managerDepartman || "",
+        category,
+        tasks: [
+          {
+            obj_weight: "",
+            KPIEn: "",
+            KPIFa: "",
+            KPI_Info: "",
+            target: "",
+            KPI_weight: "",
+            KPI_Achievement: "",
+            Percentage_Achievement: "",
+            Score_Achievement: "",
+            Type: "Editable",
+            Sum: "",
+          },
+        ],
+      };
+
+      await kpiApi.submitKPIEntry(payload);
+      toast.success("ردیف جدید اضافه شد");
+      await fetchEntries();
+      setCurrentPage(1);
+    } catch {
+      toast.error("خطا در افزودن ردیف جدید");
+    }
+  };
+
   const clearFilters = () => {
     setFilters({
       caseOwner: "",
@@ -244,7 +331,7 @@ const KpiManagerReview = () => {
 
       if (hasConfirmedWorks) {
         toast.warning(
-          "کاربر دارای کارهای تایید شده است و امکان تغییر وضعیت وجود ندارد"
+          "کاربر دارای کارهای تایید شده است و امکان نمایش وجود ندارد"
         );
         return;
       }
@@ -256,7 +343,7 @@ const KpiManagerReview = () => {
           category,
           manager_departman: info.departman || "",
         });
-        toast.success(`اجازه ویرایش از ${fullName} گرفته شد`);
+        toast.success(`عدم نمایش جدول برای ${fullName}`);
         // Update all entries for this user
         setEntries((prev) =>
           prev.map((r) =>
@@ -275,7 +362,7 @@ const KpiManagerReview = () => {
           category,
           manager_departman: info.departman || "",
         });
-        toast.success(`اجازه ویرایش به ${fullName} داده شد`);
+        toast.success(`نمایش جدول برای ${fullName}`);
         // Update all entries for this user
         setEntries((prev) =>
           prev.map((r) =>
@@ -292,7 +379,7 @@ const KpiManagerReview = () => {
     } catch {
       const wasEditable = currentStatus === "Editable";
       toast.error(
-        wasEditable ? "خطا در گرفتن اجازه ویرایش" : "خطا در دادن اجازه ویرایش"
+        wasEditable ? "خطا در عدم نمایش جدول کاربر" : "خطا در نمایش جدول کاربر"
       );
     }
   };
@@ -426,6 +513,11 @@ const KpiManagerReview = () => {
     [entries]
   );
 
+  const kpiParam = useMemo(
+    () => searchParams.get("kpi") || null,
+    [searchParams]
+  );
+
   const filteredEntries = useMemo(
     () =>
       entries.filter((row) => {
@@ -462,6 +554,24 @@ const KpiManagerReview = () => {
     [entries, filters]
   );
 
+  const displayedEntries = useMemo(
+    () =>
+      filteredEntries.filter((row) => {
+        const byUser =
+          !activeUser || String(row.personal_code) === String(activeUser);
+        const byKpi =
+          !kpiParam ||
+          String(row.KPIFa).trim() === decodeURIComponent(kpiParam);
+        return byUser && byKpi;
+      }),
+    [filteredEntries, activeUser, kpiParam]
+  );
+
+  useEffect(() => {
+    const maxPages = Math.max(1, Math.ceil(displayedEntries.length / pageSize));
+    setCurrentPage((p) => Math.min(p, maxPages));
+  }, [displayedEntries.length]);
+
   const isLight = document.documentElement.classList.contains("light");
 
   return (
@@ -470,6 +580,18 @@ const KpiManagerReview = () => {
       <ToastContainer position="top-center" autoClose={1500} rtl={true} />
       <main className="w-full lg:px-8 mb-10" dir="rtl">
         <div className="mt-8 px-4">
+          <div>
+            <button
+              onClick={() => navigate("/kpipeopleworks")}
+              className={`px-3 py-2 rounded cursor-pointer mb-2 ${
+                isLight
+                  ? "bg-gray-300 hover:bg-gray-100"
+                  : "bg-gray-600 hover:bg-gray-500"
+              }`}
+            >
+              بازگشت
+            </button>
+          </div>
           <div
             className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
               isLight
@@ -601,37 +723,67 @@ const KpiManagerReview = () => {
                             isLight ? "text-gray-700" : "text-gray-300"
                           } text-sm font-medium`}
                         >
-                          اجازه ویرایش
+                          نمایش جدول کاربر
                         </span>
                         <div className="relative group">
                           <label
                             className={`relative inline-flex items-center ${
-                              user.has_confirmed_works
+                              user.has_confirmed_works ||
+                              (activeUser && activeUser !== user.personal_code)
                                 ? "cursor-not-allowed"
                                 : "cursor-pointer"
                             }`}
                           >
                             <input
                               type="checkbox"
-                              checked={user.has_edit_permission}
-                              onChange={() =>
-                                !user.has_confirmed_works &&
-                                handleToggleEditPermission(
-                                  user.personal_code,
-                                  user.full_name,
-                                  user.has_edit_permission ? "Editable" : ""
-                                )
+                              checked={activeUser === user.personal_code}
+                              onChange={async () => {
+                                if (
+                                  activeUser &&
+                                  activeUser !== user.personal_code
+                                ) {
+                                  return;
+                                }
+                                if (activeUser === user.personal_code) {
+                                  await handleToggleEditPermission(
+                                    user.personal_code,
+                                    user.full_name,
+                                    "Editable"
+                                  );
+                                  setActiveUser(null);
+                                } else {
+                                  if (user.has_confirmed_works) {
+                                    toast.warning(
+                                      "کاربر دارای کارهای تایید شده است و امکان نمایش وجود ندارد"
+                                    );
+                                    return;
+                                  }
+                                  await handleToggleEditPermission(
+                                    user.personal_code,
+                                    user.full_name,
+                                    ""
+                                  );
+                                  setActiveUser(user.personal_code);
+                                }
+                              }}
+                              disabled={
+                                user.has_confirmed_works ||
+                                (activeUser &&
+                                  activeUser !== user.personal_code)
                               }
-                              disabled={user.has_confirmed_works}
                               className="sr-only peer"
                             />
                             <div
                               className={`w-11 h-6 ${
-                                user.has_confirmed_works
+                                user.has_confirmed_works ||
+                                (activeUser &&
+                                  activeUser !== user.personal_code)
                                   ? "bg-gray-700"
                                   : "bg-gray-600"
                               } peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                                user.has_confirmed_works
+                                user.has_confirmed_works ||
+                                (activeUser &&
+                                  activeUser !== user.personal_code)
                                   ? "opacity-50"
                                   : "peer-checked:bg-yellow-600"
                               }`}
@@ -658,972 +810,1073 @@ const KpiManagerReview = () => {
             </div>
           )}
 
-          <div
-            className={`mt-6 overflow-auto pt-6 text-center ${
-              isLight ? "border-t border-gray-200" : "border-t border-gray-600"
-            }`}
-          >
-            <table className="w-full text-sm mb-5">
-              <thead>
-                <tr className="text-center">
-                  <th className="px-2 py-2 text-gray-400">#</th>
-                  <th className="px-2 py-2 text-gray-400">پرونده</th>
-                  <th className="px-2 py-2 text-gray-400">Object Weight</th>
-                  <th className="px-2 py-2 text-gray-400">KPI English</th>
-                  <th className="px-2 py-2 text-gray-400">KPI Farsi</th>
-                  <th className="px-2 py-2 text-gray-400">KPI Info</th>
-                  <th className="px-2 py-2 text-gray-400">Target</th>
-                  <th className="px-2 py-2 text-gray-400">KPI Weight</th>
-                  <th className="px-2 py-2 text-gray-400">KPI Achievement</th>
-                  <th className="px-2 py-2 text-gray-400">% Achievement</th>
-                  <th className="px-2 py-2 text-gray-400">Score</th>
-                  <th className="px-2 py-2 text-gray-400">Type</th>
-                  <th className="px-2 py-2 text-gray-400">Sum</th>
-                  <th className="px-2 py-2 text-gray-400">Status</th>
-                  <th className="px-2 py-2 text-gray-400">Actions</th>
-                </tr>
-                <tr
-                  className={`text-center ${
-                    isLight ? "bg-gray-300" : "bg-gray-900"
-                  }`}
-                >
-                  <th className="px-2 py-1 text-gray-400"></th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.caseOwner}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            caseOwner: e.target.value,
-                          }))
-                        }
-                        className={`w-40 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.caseOwner.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            caseOwner: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.obj_weight}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            obj_weight: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.obj_weight.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            obj_weight: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.KPIEn}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPIEn: e.target.value,
-                          }))
-                        }
-                        className={`w-32 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.KPIEn.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPIEn: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.KPIFa}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPIFa: e.target.value,
-                          }))
-                        }
-                        className={`w-32 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.KPIFa.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPIFa: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.KPI_Info}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_Info: e.target.value,
-                          }))
-                        }
-                        className={`w-40 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.KPI_Info.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_Info: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.target}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            target: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.target.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            target: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.KPI_weight}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_weight: e.target.value,
-                          }))
-                        }
-                        className={`w-20 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.KPI_weight.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_weight: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.KPI_Achievement}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_Achievement: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.KPI_Achievement.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            KPI_Achievement: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.Percentage_Achievement}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Percentage_Achievement: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.Percentage_Achievement.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Percentage_Achievement: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.Score_Achievement}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Score_Achievement: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.Score_Achievement.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Score_Achievement: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.Type}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Type: e.target.value,
-                          }))
-                        }
-                        className={`w-20 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.Type.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Type: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.Sum}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Sum: e.target.value,
-                          }))
-                        }
-                        className={`w-24 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.Sum.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Sum: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1">
-                    <div className="flex items-center justify-center gap-1">
-                      <select
-                        value={filters.Status}
-                        onChange={(e) =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Status: e.target.value,
-                          }))
-                        }
-                        className={`w-20 px-2 py-1 border rounded ${
-                          isLight
-                            ? "bg-white text-gray-900 border-gray-300"
-                            : "bg-gray-800 text-gray-200 border-gray-600"
-                        } text-xs`}
-                      >
-                        <option value="" className="text-gray-800">
-                          All
-                        </option>
-                        {uniqueValues.Status.map((v) => (
-                          <option key={String(v)} value={String(v)}>
-                            {String(v)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFilters((prev) => ({
-                            ...prev,
-                            Status: "",
-                          }))
-                        }
-                        className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                  <th className="px-2 py-1 text-gray-400"></th>
-                </tr>
-              </thead>
-              <tbody
-                className={`divide-y ${
-                  isLight ? "divide-gray-300" : "divide-gray-700"
-                } text-center`}
-              >
-                {filteredEntries
-                  .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-                  .map((row, index) => (
-                    <tr
-                      className={`${
-                        isLight
-                          ? "bg-white hover:bg-gray-200"
-                          : "bg-gray-800 hover:bg-gray-700"
-                      } align-top`}
-                    >
-                      <td
-                        className={`px-2 py-2  ${
-                          isLight ? "text-gray-700" : "text-gray-300"
-                        }`}
-                      >
-                        {(currentPage - 1) * pageSize + index + 1}
-                      </td>
-                      <td
-                        className={`px-2 py-2  ${
-                          isLight ? "text-gray-700" : "text-gray-300"
-                        }`}
-                      >
-                        {row.full_name} ({row.personal_code})
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={formatPercent(row.obj_weight)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "obj_weight",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="Object weight"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={row.KPIEn}
-                          onChange={(e) =>
-                            handleChange(row.id, "KPIEn", e.target.value)
-                          }
-                          placeholder="KPI English"
-                          className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={row.KPIFa}
-                          dir="rtl"
-                          onChange={(e) =>
-                            handleChange(row.id, "KPIFa", e.target.value)
-                          }
-                          placeholder="KPI Farsi"
-                          className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <textarea
-                          value={row.KPI_Info}
-                          dir="rtl"
-                          onChange={(e) =>
-                            handleChange(row.id, "KPI_Info", e.target.value)
-                          }
-                          placeholder="KPI info"
-                          rows={2}
-                          className={`w-56 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={formatPercent(row.target)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "target",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="Target"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={formatPercent(row.KPI_weight)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "KPI_weight",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="KPI weight"
-                          className={`w-20 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={formatPercent(row.KPI_Achievement)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "KPI_Achievement",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="KPI Achievement"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formatPercent(row.Percentage_Achievement)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "Percentage_Achievement",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="% Achievement"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={row.Score_Achievement}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "Score_Achievement",
-                              e.target.value === ""
-                                ? ""
-                                : Number(e.target.value)
-                            )
-                          }
-                          placeholder="Score"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={row.Type}
-                          onChange={(e) =>
-                            handleChange(row.id, "Type", e.target.value)
-                          }
-                          placeholder="Type"
-                          className={`w-24 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          step="any"
-                          value={formatPercent(row.Sum)}
-                          onChange={(e) =>
-                            handleChange(
-                              row.id,
-                              "Sum",
-                              e.target.value === ""
-                                ? ""
-                                : parsePercent(e.target.value)
-                            )
-                          }
-                          placeholder="Sum"
-                          className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                          disabled={row.Status === "Confirmed"}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <span
-                          className={
-                            "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold " +
-                            (row.Status === "Confirmed"
-                              ? "bg-green-700 text-green-100"
-                              : row.Status === "Editable"
-                              ? "bg-yellow-700 text-yellow-100"
-                              : "bg-gray-300 text-gray-900")
-                          }
-                        >
-                          {row.Status || "-"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            type="button"
-                            onClick={() => handleSave(row)}
-                            className={`bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
-                              row._dirty && row.Status !== "Confirmed"
-                                ? ""
-                                : "opacity-50 cursor-not-allowed"
-                            }`}
-                            disabled={!row._dirty || row.Status === "Confirmed"}
-                          >
-                            ذخیره
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleConfirm(row)}
-                            className={`bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
-                              row.Status === "Confirmed"
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
-                            disabled={row.Status === "Confirmed"}
-                          >
-                            تایید
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              // Prevent granting edit permission if the row is confirmed
-                              if (row.Status === "Confirmed") {
-                                toast.warning(
-                                  "کارهای تایید شده قابل ویرایش نیستند"
-                                );
-                                return;
-                              }
-
-                              try {
-                                const info = JSON.parse(
-                                  localStorage.getItem("kpiUserInfo") || "{}"
-                                );
-                                await kpiApi.grantEditPermission({
-                                  personal_code: row.personal_code,
-                                  category,
-                                  manager_departman: info.departman || "",
-                                });
-                                toast.success("اجازه ویرایش داده شد");
-                                // Notification is created by backend in kpientry_grant_edit
-                                setEntries((prev) =>
-                                  prev.map((r) =>
-                                    r.id === row.id && r.Status !== "Confirmed"
-                                      ? { ...r, Status: "Editable" }
-                                      : r
-                                  )
-                                );
-                              } catch (e) {
-                                console.error(
-                                  "Error granting edit permission:",
-                                  e
-                                );
-                                toast.error("خطا در دادن اجازه ویرایش");
-                              }
-                            }}
-                            className={`bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
-                              row.Status === "Confirmed"
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
-                            disabled={row.Status === "Confirmed"}
-                          >
-                            اجازه ویرایش
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(row.row)}
-                            className={`bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
-                              row.Status === "Confirmed"
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
-                            disabled={row.Status === "Confirmed"}
-                          >
-                            حذف
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-gray-200">
-                <strong>Total Score:</strong>{" "}
-                {(() => {
-                  const total = filteredEntries.reduce(
-                    (s, t) => s + (Number(t.Score_Achievement) || 0),
-                    0
-                  );
-                  return round2(total);
-                })()}
-                %
-              </div>
-              <div className="flex items-center gap-2 mb-10">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="bg-gray-700 cursor-pointer hover:bg-gray-800 text-white px-3 py-1 rounded text-sm"
-                >
-                  Clear Filters
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="bg-gray-600 cursor-pointer disabled:opacity-50 hover:bg-gray-700 text-white px-3 py-1 rounded"
-                >
-                  Prev
-                </button>
-                {Array.from(
-                  { length: Math.ceil(filteredEntries.length / pageSize) },
-                  (_, i) => i + 1
-                ).map((p) => (
+          {(activeUser || kpiParam) && (
+            <div
+              className={`mt-6 overflow-auto pt-6 text-center ${
+                isLight
+                  ? "border-t border-gray-200"
+                  : "border-t border-gray-600"
+              }`}
+            >
+              {kpiParam && (
+                <div className="flex items-center justify-between mb-3">
+                  <div className={isLight ? "text-gray-800" : "text-gray-200"}>
+                    افزودن ردیف جدید برای همه افراد مرتبط با KPI انتخاب‌شده
+                  </div>
                   <button
-                    key={p}
                     type="button"
-                    onClick={() => setCurrentPage(p)}
-                    className={`px-3 py-1 rounded ${
-                      currentPage === p
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-600 text-white hover:bg-gray-700"
+                    onClick={async () => {
+                      try {
+                        const workName = decodeURIComponent(kpiParam || "");
+                        if (!workName) {
+                          toast.error("نام KPI نامعتبر است");
+                          return;
+                        }
+                        const uniquePeople = Array.from(
+                          new Map(
+                            displayedEntries.map((e) => [
+                              String(e.personal_code),
+                              {
+                                personal_code: e.personal_code,
+                                full_name: e.full_name,
+                                role: e.role,
+                                direct_management: e.direct_management,
+                                departman: e.departman,
+                              },
+                            ])
+                          ).values()
+                        );
+
+                        await Promise.all(
+                          uniquePeople.map((p) =>
+                            kpiApi.submitKPIEntry({
+                              personal_code: p.personal_code,
+                              full_name: p.full_name || "",
+                              company_name: "",
+                              role: p.role || "",
+                              direct_management:
+                                p.direct_management || managerName || "",
+                              departman: p.departman || managerDepartman || "",
+                              category,
+                              tasks: [
+                                {
+                                  obj_weight: "",
+                                  KPIEn: "",
+                                  KPIFa: workName,
+                                  KPI_Info: "",
+                                  target: "",
+                                  KPI_weight: "",
+                                  KPI_Achievement: "",
+                                  Percentage_Achievement: "",
+                                  Score_Achievement: "",
+                                  Type: "Editable",
+                                  Sum: "",
+                                },
+                              ],
+                            })
+                          )
+                        );
+                        toast.success("ردیف‌ها برای همه افراد اضافه شد");
+                        await fetchEntries();
+                        setCurrentPage(1);
+                      } catch (e) {
+                        toast.error("خطا در افزودن ردیف‌ها برای همه افراد");
+                      }
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    افزودن ردیف برای همه
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-3">
+                <div className={isLight ? "text-gray-800" : "text-gray-200"}>
+                  افزودن ردیف جدید برای کاربر انتخاب شده
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddRow}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  افزودن ردیف
+                </button>
+              </div>
+              <table className="w-full text-sm mb-5">
+                <thead>
+                  <tr className="text-center">
+                    <th className="px-2 py-2 text-gray-400">#</th>
+                    <th className="px-2 py-2 text-gray-400">پرونده</th>
+                    <th className="px-2 py-2 text-gray-400">Object Weight</th>
+                    <th className="px-2 py-2 text-gray-400">KPI English</th>
+                    <th className="px-2 py-2 text-gray-400">KPI Farsi</th>
+                    <th className="px-2 py-2 text-gray-400">KPI Info</th>
+                    <th className="px-2 py-2 text-gray-400">Target</th>
+                    <th className="px-2 py-2 text-gray-400">KPI Weight</th>
+                    <th className="px-2 py-2 text-gray-400">KPI Achievement</th>
+                    <th className="px-2 py-2 text-gray-400">% Achievement</th>
+                    <th className="px-2 py-2 text-gray-400">Score</th>
+                    <th className="px-2 py-2 text-gray-400">Type</th>
+                    <th className="px-2 py-2 text-gray-400">Sum</th>
+                    <th className="px-2 py-2 text-gray-400">Status</th>
+                    <th className="px-2 py-2 text-gray-400">Actions</th>
+                  </tr>
+                  <tr
+                    className={`text-center ${
+                      isLight ? "bg-gray-300" : "bg-gray-900"
                     }`}
                   >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((p) =>
-                      Math.min(
-                        Math.ceil(filteredEntries.length / pageSize) || 1,
-                        p + 1
-                      )
-                    )
-                  }
-                  disabled={
-                    currentPage ===
-                    (Math.ceil(filteredEntries.length / pageSize) || 1)
-                  }
-                  className="bg-gray-600 cursor-pointer disabled:opacity-50 hover:bg-gray-700 text-white px-3 py-1 rounded"
+                    <th className="px-2 py-1 text-gray-400"></th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.caseOwner}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              caseOwner: e.target.value,
+                            }))
+                          }
+                          className={`w-40 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.caseOwner.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              caseOwner: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.obj_weight}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              obj_weight: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.obj_weight.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              obj_weight: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.KPIEn}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPIEn: e.target.value,
+                            }))
+                          }
+                          className={`w-32 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.KPIEn.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPIEn: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.KPIFa}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPIFa: e.target.value,
+                            }))
+                          }
+                          className={`w-32 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.KPIFa.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPIFa: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.KPI_Info}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_Info: e.target.value,
+                            }))
+                          }
+                          className={`w-40 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.KPI_Info.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_Info: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.target}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              target: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.target.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              target: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.KPI_weight}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_weight: e.target.value,
+                            }))
+                          }
+                          className={`w-20 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.KPI_weight.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_weight: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.KPI_Achievement}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_Achievement: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.KPI_Achievement.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              KPI_Achievement: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Percentage_Achievement}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Percentage_Achievement: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.Percentage_Achievement.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Percentage_Achievement: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Score_Achievement}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Score_Achievement: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.Score_Achievement.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Score_Achievement: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Type}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Type: e.target.value,
+                            }))
+                          }
+                          className={`w-20 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.Type.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Type: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Sum}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Sum: e.target.value,
+                            }))
+                          }
+                          className={`w-24 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.Sum.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Sum: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Status}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Status: e.target.value,
+                            }))
+                          }
+                          className={`w-20 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          {uniqueValues.Status.map((v) => (
+                            <option key={String(v)} value={String(v)}>
+                              {String(v)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Status: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1 text-gray-400"></th>
+                  </tr>
+                </thead>
+                <tbody
+                  className={`divide-y ${
+                    isLight ? "divide-gray-300" : "divide-gray-700"
+                  } text-center`}
                 >
-                  Next
-                </button>
+                  {displayedEntries
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                    .map((row, index) => (
+                      <tr
+                        className={`${
+                          isLight
+                            ? "bg-white hover:bg-gray-200"
+                            : "bg-gray-800 hover:bg-gray-700"
+                        } align-top`}
+                      >
+                        <td
+                          className={`px-2 py-2  ${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          }`}
+                        >
+                          {(currentPage - 1) * pageSize + index + 1}
+                        </td>
+                        <td
+                          className={`px-2 py-2  ${
+                            isLight ? "text-gray-700" : "text-gray-300"
+                          }`}
+                        >
+                          {row.full_name} ({row.personal_code})
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={formatPercent(row.obj_weight)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "obj_weight",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="Object weight"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            value={row.KPIEn}
+                            onChange={(e) =>
+                              handleChange(row.id, "KPIEn", e.target.value)
+                            }
+                            placeholder="KPI English"
+                            className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            value={row.KPIFa}
+                            dir="rtl"
+                            onChange={(e) =>
+                              handleChange(row.id, "KPIFa", e.target.value)
+                            }
+                            placeholder="KPI Farsi"
+                            className={`w-48 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <textarea
+                            value={row.KPI_Info}
+                            dir="rtl"
+                            onChange={(e) =>
+                              handleChange(row.id, "KPI_Info", e.target.value)
+                            }
+                            placeholder="KPI info"
+                            rows={2}
+                            className={`w-56 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={formatPercent(row.target)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "target",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="Target"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={formatPercent(row.KPI_weight)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "KPI_weight",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="KPI weight"
+                            className={`w-20 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={formatPercent(row.KPI_Achievement)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "KPI_Achievement",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="KPI Achievement"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={formatPercent(row.Percentage_Achievement)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "Percentage_Achievement",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="% Achievement"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={row.Score_Achievement}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "Score_Achievement",
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                            placeholder="Score"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            value={row.Type}
+                            onChange={(e) =>
+                              handleChange(row.id, "Type", e.target.value)
+                            }
+                            placeholder="Type"
+                            className={`w-24 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="number"
+                            step="any"
+                            value={formatPercent(row.Sum)}
+                            onChange={(e) =>
+                              handleChange(
+                                row.id,
+                                "Sum",
+                                e.target.value === ""
+                                  ? ""
+                                  : parsePercent(e.target.value)
+                              )
+                            }
+                            placeholder="Sum"
+                            className={`w-28 px-2 py-1 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                            disabled={row.Status === "Confirmed"}
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <span
+                            className={
+                              "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold " +
+                              (row.Status === "Confirmed"
+                                ? "bg-green-700 text-green-100"
+                                : row.Status === "Editable"
+                                ? "bg-yellow-700 text-yellow-100"
+                                : "bg-gray-300 text-gray-900")
+                            }
+                          >
+                            {row.Status || "-"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleSave(row)}
+                              className={`bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
+                                row._dirty && row.Status !== "Confirmed"
+                                  ? ""
+                                  : "opacity-50 cursor-not-allowed"
+                              }`}
+                              disabled={
+                                !row._dirty || row.Status === "Confirmed"
+                              }
+                            >
+                              ذخیره
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleConfirm(row)}
+                              className={`bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
+                                row.Status === "Confirmed"
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              disabled={row.Status === "Confirmed"}
+                            >
+                              تایید
+                            </button>
+                            {/* <button
+                              type="button"
+                              onClick={async () => {
+                                // Prevent granting edit permission if the row is confirmed
+                                if (row.Status === "Confirmed") {
+                                  toast.warning(
+                                    "کارهای تایید شده قابل ویرایش نیستند"
+                                  );
+                                  return;
+                                }
+
+                                try {
+                                  const info = JSON.parse(
+                                    localStorage.getItem("kpiUserInfo") || "{}"
+                                  );
+                                  await kpiApi.grantEditPermission({
+                                    personal_code: row.personal_code,
+                                    category,
+                                    manager_departman: info.departman || "",
+                                  });
+                                  toast.success("اجازه ویرایش داده شد");
+                                  // Notification is created by backend in kpientry_grant_edit
+                                  setEntries((prev) =>
+                                    prev.map((r) =>
+                                      r.id === row.id &&
+                                      r.Status !== "Confirmed"
+                                        ? { ...r, Status: "Editable" }
+                                        : r
+                                    )
+                                  );
+                                } catch (e) {
+                                  console.error(
+                                    "Error granting edit permission:",
+                                    e
+                                  );
+                                  toast.error("خطا در دادن اجازه ویرایش");
+                                }
+                              }}
+                              className={`bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
+                                row.Status === "Confirmed"
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              disabled={row.Status === "Confirmed"}
+                            >
+                              اجازه ویرایش
+                            </button> */}
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(row.row)}
+                              className={`bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition duration-200 ${
+                                row.Status === "Confirmed"
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              disabled={row.Status === "Confirmed"}
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-gray-200">
+                  <strong>Total Score:</strong>{" "}
+                  {(() => {
+                    const total = displayedEntries.reduce(
+                      (s, t) => s + (Number(t.Score_Achievement) || 0),
+                      0
+                    );
+                    return round2(total);
+                  })()}
+                  %
+                </div>
+                <div className="flex items-center gap-2 mb-10">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="bg-gray-700 cursor-pointer hover:bg-gray-800 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Clear Filters
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="bg-gray-600 cursor-pointer disabled:opacity-50 hover:bg-gray-700 text-white px-3 py-1 rounded"
+                  >
+                    Prev
+                  </button>
+                  {Array.from(
+                    {
+                      length: Math.max(
+                        1,
+                        Math.ceil(displayedEntries.length / pageSize)
+                      ),
+                    },
+                    (_, i) => i + 1
+                  ).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1 rounded ${
+                        currentPage === p
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-600 text-white hover:bg-gray-700"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCurrentPage((p) =>
+                        Math.min(
+                          Math.max(
+                            1,
+                            Math.ceil(displayedEntries.length / pageSize)
+                          ) || 1,
+                          p + 1
+                        )
+                      )
+                    }
+                    disabled={
+                      currentPage ===
+                      (Math.max(
+                        1,
+                        Math.ceil(displayedEntries.length / pageSize)
+                      ) || 1)
+                    }
+                    className="bg-gray-600 cursor-pointer disabled:opacity-50 hover:bg-gray-700 text-white px-3 py-1 rounded"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
