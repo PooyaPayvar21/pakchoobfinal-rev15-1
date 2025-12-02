@@ -1,10 +1,7 @@
 import axios from "axios";
 
-// Base API URL - use Vite env var if available, fall back to the same backend as main API
-const API_BASE_URL = 
-  process.env.VITE_API_URL ||
-  process.env.REACT_APP_API_URL ||
-  "/api"; // This will use the same backend as the main API
+const env = typeof import.meta !== "undefined" ? import.meta.env || {} : {};
+const API_BASE_URL = env.VITE_API_URL || env.REACT_APP_API_URL || "/api";
 
 // Create axios instance with default headers
 const apiClient = axios.create({
@@ -302,8 +299,8 @@ export const kpiApi = {
           personal_code,
           category,
           departman,
-          not_managed: not_managed ? 'true' : 'false',
-          outside_department: outside_department ? 'true' : 'false',
+          not_managed: not_managed ? "true" : "false",
+          outside_department: outside_department ? "true" : "false",
         },
       });
       // Return the full response object so frontend can access debug info
@@ -340,7 +337,11 @@ export const kpiApi = {
       throw error;
     }
   },
-  grantEditPermission: async ({ personal_code, category, manager_departman }) => {
+  grantEditPermission: async ({
+    personal_code,
+    category,
+    manager_departman,
+  }) => {
     try {
       const response = await apiClient.post("/kpientry/grant-edit/", {
         personal_code,
@@ -353,7 +354,11 @@ export const kpiApi = {
       throw error;
     }
   },
-  revokeEditPermission: async ({ personal_code, category, manager_departman }) => {
+  revokeEditPermission: async ({
+    personal_code,
+    category,
+    manager_departman,
+  }) => {
     try {
       const response = await apiClient.post("/kpientry/revoke-edit/", {
         personal_code,

@@ -7,23 +7,26 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [userType, setUserType] = useState("pm");
   const [subUserType, setSubUserType] = useState("management");
-  const [sections, setSections] = useState(["General"]);
+  const [sections, setSections] = useState([]);
   const [additionalRoles, setAdditionalRoles] = useState([]);
   const [message, setMessage] = useState("");
   const [isUpdateMode, setIsUpdateMode] = useState(false);
 
   // Define user types and their corresponding sub-user types
   const userTypeOptions = [
-    { value: "pm", label: "PM" },
-    { value: "production", label: "Production" },
-    { value: "mechanic", label: "Mechanic" },
-    { value: "generalmechanic", label: "General Mechanic" },
-    { value: "electric", label: "Electric" },
-    { value: "utility", label: "Utility" },
-    { value: "metalworking", label: "Metal Working" },
-    { value: "tarashkari", label: "Tarash Kari" },
-    { value: "paint", label: "Paint" },
-    { value: "drawing", label: "Drawing" },
+    { value: "superadmin", label: "Super Admin" },
+    { value: "ceo", label: "CEO" },
+    { value: "management", label: "Management" },
+    { value: "manager", label: "Manager" },
+    // { value: "pm", label: "PM" },
+    // { value: "production", label: "Production" },
+    // { value: "mechanic", label: "Mechanic" },
+    // { value: "generalmechanic", label: "General Mechanic" },
+    // { value: "electric", label: "Electric" },
+    // { value: "utility", label: "Utility" },
+    // { value: "metalworking", label: "Metal Working" },
+    // { value: "tarashkari", label: "Tarash Kari" },
+    // { value: "paint", label: "Paint" },
   ];
 
   // Define section options
@@ -52,21 +55,27 @@ const Register = () => {
 
   // Get available sub-user types based on selected user type
   const getSubUserTypes = (selectedUserType) => {
-    if (selectedUserType === "production") {
-      return [
-        { value: "management", label: "Management" },
-        { value: "operator", label: "Operator" },
-      ];
-    } else if (selectedUserType === "pm") {
-      return [
-        { value: "management", label: "Management" },
-        { value: "technician", label: "Technician" },
-      ];
-    } else {
-      return [
-        { value: "management", label: "Management" },
-        { value: "technician", label: "Technician" },
-      ];
+    switch (selectedUserType) {
+      case "superadmin":
+        return [{ value: "superadmin", label: "Super Admin" }];
+      case "ceo":
+        return [{ value: "ceo", label: "CEO" }];
+      case "management":
+        return [{ value: "management", label: "Management" }];
+      case "manager":
+        return [{ value: "manager", label: "Manager" }];
+      case "production":
+        return [
+          { value: "management", label: "Management" },
+          { value: "operator", label: "Operator" },
+        ];
+      case "pm":
+        return [
+          { value: "management", label: "Management" },
+          { value: "technician", label: "Technician" },
+        ];
+      default:
+        return [{ value: "technician", label: "Technician" }];
     }
   };
 
@@ -117,8 +126,8 @@ const Register = () => {
     setMessage("");
 
     try {
-      // Ensure sections is always an array
-      const sectionsToSend = Array.isArray(sections) ? sections : [sections];
+      // Ensure sections is always an array (can be empty)
+      const sectionsToSend = Array.isArray(sections) ? sections : [];
 
       if (isUpdateMode) {
         // Update additional roles for existing user
@@ -251,9 +260,7 @@ const Register = () => {
                     multiple
                     value={sections}
                     onChange={handleSectionChange}
-                    required
-                    className="w-full min-h-[120px] bg-gray-800/50 border-2 border-white/20 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-                    size={5}
+                    className="w-full p-2 border rounded-md"
                   >
                     {sectionOptions.map((option) => (
                       <option

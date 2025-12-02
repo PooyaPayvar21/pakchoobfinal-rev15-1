@@ -33,136 +33,279 @@ function KpiBulkAssign() {
     category: "MainTasks",
     obj_weight: "",
     KPI_Info: "",
+    company_name: "",
+    season: "",
+    personal_code: "",
+    full_name: "",
+    role: "",
   });
 
-  const managerName = useMemo(() => {
+  // Get manager info from localStorage
+  const managerInfo = useMemo(() => {
     try {
-      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.full_name || "";
+      return JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
     } catch {
-      return "";
-    }
-  }, []);
-  const managerDepartman = useMemo(() => {
-    try {
-      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.departman || "";
-    } catch {
-      return "";
-    }
-  }, []);
-  const managerPersonalCode = useMemo(() => {
-    try {
-      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.personal_code || "";
-    } catch {
-      return "";
-    }
-  }, []);
-  const managerRole = useMemo(() => {
-    try {
-      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.role || "";
-    } catch {
-      return "";
-    }
-  }, []);
-  const managerDirectManagement = useMemo(() => {
-    try {
-      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.direct_management || "";
-    } catch {
-      return "";
+      return {};
     }
   }, []);
 
+  const managerName = managerInfo.full_name || "";
+  const managerDepartman = managerInfo.departman || "";
+  const managerPersonalCode = managerInfo.personal_code || "";
+  const managerRole = (managerInfo.role || "").toLowerCase();
+  const managerDirectManagement = managerInfo.direct_management || "";
+
+  // Check if current user is a management role
+  const isManagement = ["management", "manager", "ceo", "superadmin"].includes(
+    managerRole
+  );
+
+  // Fetch KPI entries for the manager's direct reports
   useEffect(() => {
     const fetchEntries = async () => {
-      if (!managerName) {
+      setLoadingEntries(true);
+      console.log(
+        "[BulkAssign] manager:",
+        managerName,
+        "departman:",
+        managerDepartman,
+        "isManagement:",
+        isManagement
+      );
+      if (!String(managerName || "").trim()) {
+        toast.error("نام مدیر در اطلاعات کاربر (kpiUserInfo) ثبت نشده است");
+        setEntries([]);
         setLoadingEntries(false);
         return;
       }
-      setLoadingEntries(true);
       try {
-        const attempts = [
-          {
-            manager: managerName,
-            category: "All",
-            departman: managerDepartman,
-            not_managed: false,
-            outside_department: false,
-          },
-          {
-            manager: managerName,
-            category: "All",
-            departman: managerDepartman,
-            not_managed: true,
-            outside_department: false,
-          },
-          {
-            manager: "",
-            category: "All",
-            departman: managerDepartman,
-            not_managed: false,
-            outside_department: true,
-          },
-          {
-            manager: managerName,
-            category: "All",
-            departman: "",
-            not_managed: false,
-            outside_department: true,
-          },
-        ];
-        const results = await Promise.all(
-          attempts.map((params) =>
-            kpiApi
-              .fetchSubordinateEntries(params)
-              .then((resp) => resp)
-              .catch(() => null)
-          )
-        );
-        const taskMap = new Map();
-        results.forEach((resp) => {
-          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
-          arr.forEach((t) => {
-            const key = t.row ?? t.id;
-            if (key == null) return;
-            if (!taskMap.has(key)) taskMap.set(key, t);
+        // If user is management, fetch only their direct reports
+        if (isManagement) {
+          const attempts = [
+            {
+              manager: managerName,
+              category: "All",
+              departman: managerDepartman,
+              not_managed: false,
+              outside_department: false,
+            },
+            {
+              manager: managerName,
+              category: "All",
+              departman: managerDepartman,
+              not_managed: true,
+              outside_department: false,
+            },
+            {
+              manager: "",
+              category: "All",
+              departman: managerDepartman,
+              not_managed: false,
+              outside_department: true,
+            },
+            {
+              manager: managerName,
+              category: "All",
+              departman: "",
+              not_managed: false,
+              outside_department: true,
+            },
+          ];
+          const results = await Promise.all(
+            attempts.map((p) =>
+              kpiApi
+                .fetchSubordinateEntries(p)
+                .then((resp) => resp)
+                .catch(() => null)
+            )
+          );
+          results.forEach((resp, idx) => {
+            const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+            console.log(
+              `[BulkAssign] attempt ${idx} returned`,
+              arr.length,
+              "rows"
+            );
           });
-        });
-        const tasks = Array.from(taskMap.values()).map((t) => ({
-          id: t.row,
-          row: t.row,
-          obj_weight: t.obj_weight || "",
-          KPIEn: t.kpi_en || "",
-          KPIFa: fixText(t.kpi_fa || ""),
-          KPI_Info: fixText(t.kpi_info || ""),
-          target: t.target || "",
-          KPI_weight: t.kpi_weight || "",
-          KPI_Achievement: t.kpi_achievement || "",
-          Percentage_Achievement: t.score_achievement_alt || 0,
-          Score_Achievement: t.score_achievement || 0,
-          Type: t.entry_type === "Editable" ? "Editable" : t.entry_type || "",
-          category: t.category || "",
-          Sum: t.sum_value || "",
-          personal_code: t.personal_code || "",
-          full_name: fixText(t.full_name || ""),
-          direct_management: t.direct_management || "",
-          role: t.role || "",
-          manager_name: t.manager || t.manager_name || "",
-          created_at: t.created_at || t.createdAt || null,
-          departman: t.departman || managerDepartman || "",
-        }));
-        setEntries(tasks);
-      } catch {
-        toast.error("خطا در دریافت داده ها");
+          const taskMap = new Map();
+          results.forEach((resp) => {
+            const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+            arr.forEach((t) => {
+              const key = t.row ?? t.id;
+              if (key == null) return;
+              if (!taskMap.has(key)) taskMap.set(key, t);
+            });
+          });
+          const merged = Array.from(taskMap.values());
+          console.log("[BulkAssign] merged rows:", merged.length);
+          const managerFull = fixText(managerName || "").trim();
+          const filteredByManager = merged.filter((t) => {
+            const dm = fixText(t.direct_management || "").trim();
+            const mgr = fixText(t.manager || t.manager_name || "").trim();
+            const fn = fixText(t.full_name || "").trim();
+            const role = fixText(t.role || "").trim();
+            if (dm && dm === managerFull) return true;
+            if (mgr && mgr === managerFull) return true;
+            if (fn === managerFull) return false;
+            if (role && /مدیر/i.test(role)) return false;
+            return true;
+          });
+          console.log(
+            "[BulkAssign] filtered by manager:",
+            filteredByManager.length
+          );
+          const mapped = filteredByManager.map((t) => ({
+            row: t.row ?? t.id,
+            KPIFa: fixText(t.KPIFa ?? t.kpi_fa ?? ""),
+            KPIEn: t.KPIEn ?? t.kpi_en ?? "",
+            KPI_Info: fixText(t.KPI_Info ?? t.kpi_info ?? ""),
+            target: t.target ?? "",
+            KPI_weight: t.KPI_weight ?? t.kpi_weight ?? "",
+            KPI_Achievement: t.KPI_Achievement ?? t.kpi_achievement ?? "",
+            Percentage_Achievement:
+              t.Percentage_Achievement ?? t.score_achievement_alt ?? 0,
+            Score_Achievement: t.Score_Achievement ?? t.score_achievement ?? 0,
+            Type:
+              t.Type ??
+              (t.entry_type === "Editable" ? "" : t.entry_type) ??
+              "+",
+            Sum: t.Sum ?? t.sum_value ?? "",
+            obj_weight: t.obj_weight ?? "",
+            category: t.category ?? "MainTasks",
+            personal_code: t.personal_code ?? "",
+            full_name: fixText(t.full_name ?? ""),
+            direct_management: fixText(t.direct_management ?? ""),
+            role: fixText(t.role ?? ""),
+            departman: t.departman ?? "",
+          }));
+          console.log(
+            "[BulkAssign] mapped rows set to entries:",
+            mapped.length
+          );
+          setEntries(mapped);
+          if (mapped.length === 0) {
+            toast.info("No KPI entries found for your direct reports");
+          }
+        } else {
+          // Non-management: mirror PeopleWorks flow (attempts, merge, filter, map)
+          const attempts = [
+            {
+              manager: managerName,
+              category: "All",
+              departman: managerDepartman,
+              not_managed: false,
+              outside_department: false,
+            },
+            {
+              manager: managerName,
+              category: "All",
+              departman: managerDepartman,
+              not_managed: true,
+              outside_department: false,
+            },
+            {
+              manager: "",
+              category: "All",
+              departman: managerDepartman,
+              not_managed: false,
+              outside_department: true,
+            },
+            {
+              manager: managerName,
+              category: "All",
+              departman: "",
+              not_managed: false,
+              outside_department: true,
+            },
+          ];
+          console.log("[BulkAssign] non-management attempts:", attempts);
+          const results = await Promise.all(
+            attempts.map((p) =>
+              kpiApi
+                .fetchSubordinateEntries(p)
+                .then((resp) => resp)
+                .catch(() => null)
+            )
+          );
+          results.forEach((resp, idx) => {
+            const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+            console.log(
+              `[BulkAssign] non-management attempt ${idx} rows:`,
+              arr.length
+            );
+          });
+          const taskMap = new Map();
+          results.forEach((resp) => {
+            const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+            arr.forEach((t) => {
+              const key = t.row ?? t.id;
+              if (key == null) return;
+              if (!taskMap.has(key)) taskMap.set(key, t);
+            });
+          });
+          const merged = Array.from(taskMap.values());
+          console.log(
+            "[BulkAssign] non-management merged rows:",
+            merged.length
+          );
+          const managerFull = fixText(managerName || "").trim();
+          const filteredByManager = merged.filter((t) => {
+            const dm = fixText(t.direct_management || "").trim();
+            const mgr = fixText(t.manager || t.manager_name || "").trim();
+            const fn = fixText(t.full_name || "").trim();
+            const role = fixText(t.role || "").trim();
+            if (dm && dm === managerFull) return true;
+            if (mgr && mgr === managerFull) return true;
+            if (fn === managerFull) return false;
+            if (role && /مدیر/i.test(role)) return false;
+            return true;
+          });
+          console.log(
+            "[BulkAssign] non-management filtered rows:",
+            filteredByManager.length
+          );
+          const normalized = filteredByManager.map((t) => ({
+            row: t.row ?? t.id,
+            KPIFa: fixText(t.KPIFa ?? t.kpi_fa ?? ""),
+            KPIEn: t.KPIEn ?? t.kpi_en ?? "",
+            KPI_Info: fixText(t.KPI_Info ?? t.kpi_info ?? ""),
+            target: t.target ?? "",
+            KPI_weight: t.KPI_weight ?? t.kpi_weight ?? "",
+            KPI_Achievement: t.KPI_Achievement ?? t.kpi_achievement ?? "",
+            Percentage_Achievement:
+              t.Percentage_Achievement ?? t.score_achievement_alt ?? 0,
+            Score_Achievement: t.Score_Achievement ?? t.score_achievement ?? 0,
+            Type:
+              t.Type ??
+              (t.entry_type === "Editable" ? "" : t.entry_type) ??
+              "+",
+            Sum: t.Sum ?? t.sum_value ?? "",
+            obj_weight: t.obj_weight ?? "",
+            category: t.category ?? "MainTasks",
+            personal_code: t.personal_code ?? "",
+            full_name: fixText(t.full_name ?? ""),
+            direct_management: fixText(t.direct_management ?? ""),
+            role: fixText(t.role ?? ""),
+            departman: t.departman ?? "",
+          }));
+          console.log(
+            "[BulkAssign] non-management normalized rows:",
+            normalized.length
+          );
+          setEntries(normalized);
+        }
+      } catch (error) {
+        console.error("Error fetching KPI entries:", error);
+        toast.error("خطا در دریافت داده‌ها");
+        setEntries([]);
       } finally {
+        console.log("[BulkAssign] loadingEntries=false");
         setLoadingEntries(false);
       }
     };
+
     fetchEntries();
-  }, [managerName, managerDepartman]);
+  }, [managerName, managerDepartman, managerPersonalCode, isManagement]);
 
   const normalizePersianChars = (s) =>
     String(s).replaceAll("ي", "ی").replaceAll("ك", "ک");
@@ -240,13 +383,14 @@ function KpiBulkAssign() {
     const mgrName = String(managerName || "").trim();
     const mgrCode = String(managerPersonalCode || "");
     entries.forEach((e) => {
-      const key = String(e.personal_code || "");
-      if (!key) return;
+      const code = String(e.personal_code || "");
       const full = String(e.full_name || "").trim();
       const role = String(e.role || "").trim();
+      const key = `${code}_${full}`;
+      if (!full) return;
       if (full === mgrName) return;
       if (role && /مدیر/i.test(role)) return;
-      if (key === mgrCode) return;
+      if (code && code === mgrCode) return;
       const u = m.get(key) || {
         personal_code: e.personal_code,
         full_name: e.full_name,
@@ -309,7 +453,47 @@ function KpiBulkAssign() {
     });
   };
 
-  const handleAssign = async () => {
+  const handleAssignKpi = async () => {
+    if (selectedUsers.size === 0) {
+      toast.warning("Please select at least one user");
+      return;
+    }
+
+    // For management users, ensure they can only assign to their direct reports
+    if (isManagement) {
+      const validUsers = [];
+      const invalidUsers = [];
+
+      // Check each selected user to ensure they are direct reports
+      for (const userCode of selectedUsers) {
+        try {
+          const userResponse = await kpiApi.fetchSubordinateEntries({
+            manager: managerName,
+            personal_code: userCode,
+            departman: managerDepartman,
+            category: "All",
+            not_managed: false,
+            outside_department: false,
+          });
+          const arr = Array.isArray(userResponse)
+            ? userResponse
+            : userResponse?.tasks || [];
+          if (arr.length > 0) validUsers.push(userCode);
+          else invalidUsers.push(userCode);
+        } catch (error) {
+          console.error("Error validating user:", error);
+          invalidUsers.push(userCode);
+        }
+      }
+
+      if (invalidUsers.length > 0) {
+        toast.error(
+          `You can only assign KPIs to your direct reports. ${invalidUsers.length} user(s) not authorized.`
+        );
+        return;
+      }
+    }
+
     try {
       if (!selectedRow) {
         toast.error("ابتدا یک KPI را انتخاب کنید");
@@ -547,7 +731,7 @@ function KpiBulkAssign() {
                     ایجاد KPI جدید
                   </button>
                   <button
-                    onClick={handleAssign}
+                    onClick={handleAssignKpi}
                     disabled={isSubmitting}
                     className={`px-3 py-2 rounded cursor-pointer ${
                       isLight
@@ -929,6 +1113,111 @@ function KpiBulkAssign() {
                     isLight ? "text-gray-700" : "text-gray-400"
                   } block mb-1`}
                 >
+                  شرکت
+                </label>
+                <input
+                  value={newKpi.company_name}
+                  onChange={(e) =>
+                    setNewKpi((p) => ({ ...p, company_name: e.target.value }))
+                  }
+                  placeholder="Company Name"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-900 text-gray-200 border-gray-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  فصل
+                </label>
+                <input
+                  value={newKpi.season}
+                  onChange={(e) =>
+                    setNewKpi((p) => ({ ...p, season: e.target.value }))
+                  }
+                  placeholder="Quarter"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-900 text-gray-200 border-gray-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  کد پرسنلی
+                </label>
+                <input
+                  value={newKpi.personal_code}
+                  onChange={(e) =>
+                    setNewKpi((p) => ({ ...p, personal_code: e.target.value }))
+                  }
+                  placeholder="Personel Code"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-900 text-gray-200 border-gray-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  نام و نام‌خانوادگی
+                </label>
+                <input
+                  value={newKpi.full_name}
+                  onChange={(e) =>
+                    setNewKpi((p) => ({ ...p, full_name: e.target.value }))
+                  }
+                  placeholder="Full Name"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-900 text-gray-200 border-gray-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-400"
+                  } block mb-1`}
+                >
+                  نقش
+                </label>
+                <input
+                  value={newKpi.role}
+                  onChange={(e) =>
+                    setNewKpi((p) => ({ ...p, role: e.target.value }))
+                  }
+                  placeholder="Role"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-900 text-gray-200 border-gray-700"
+                  }`}
+                />
+              </div>
+              <div>
+                <label
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-400"
+                  } block mb-1`}
+                >
                   KPIFa
                 </label>
                 <input
@@ -936,7 +1225,7 @@ function KpiBulkAssign() {
                   onChange={(e) =>
                     setNewKpi((p) => ({ ...p, KPIFa: e.target.value }))
                   }
-                  placeholder="KPIFa"
+                  placeholder="KPI Fa"
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isLight
                       ? "bg-white text-gray-900 border-gray-300"
@@ -957,7 +1246,7 @@ function KpiBulkAssign() {
                   onChange={(e) =>
                     setNewKpi((p) => ({ ...p, KPIEn: e.target.value }))
                   }
-                  placeholder="KPIEn"
+                  placeholder="KPI En"
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isLight
                       ? "bg-white text-gray-900 border-gray-300"
@@ -1022,7 +1311,7 @@ function KpiBulkAssign() {
                   onChange={(e) =>
                     setNewKpi((p) => ({ ...p, KPI_weight: e.target.value }))
                   }
-                  placeholder="KPI_weight"
+                  placeholder="KPI Weight"
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isLight
                       ? "bg-white text-gray-900 border-gray-300"
@@ -1066,7 +1355,7 @@ function KpiBulkAssign() {
                   onChange={(e) =>
                     setNewKpi((p) => ({ ...p, obj_weight: e.target.value }))
                   }
-                  placeholder="obj_weight"
+                  placeholder="Object Weight"
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isLight
                       ? "bg-white text-gray-900 border-gray-300"
@@ -1087,7 +1376,7 @@ function KpiBulkAssign() {
                   onChange={(e) =>
                     setNewKpi((p) => ({ ...p, KPI_Info: e.target.value }))
                   }
-                  placeholder="kpi_info"
+                  placeholder="KPI Information"
                   className={`w-full px-3 py-2 rounded-lg border ${
                     isLight
                       ? "bg-white text-gray-900 border-gray-300"
@@ -1116,12 +1405,13 @@ function KpiBulkAssign() {
                   }
                   try {
                     const payload = {
-                      personal_code: "",
-                      full_name: "",
-                      company_name: "",
-                      role: "",
+                      personal_code: v.personal_code || "",
+                      full_name: v.full_name || "",
+                      company_name: v.company_name || "",
+                      role: v.role || "",
                       direct_management: managerName || "",
                       departman: managerDepartman || "",
+                      season: v.season || "",
                       category: v.category,
                       tasks: [
                         {

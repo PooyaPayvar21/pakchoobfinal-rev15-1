@@ -204,6 +204,8 @@ export const NotificationsProvider = ({ children }) => {
       try {
         const enabled = localStorage.getItem("notifications_enabled");
         if (enabled === "false") return;
+        const token = getToken();
+        if (!token) return;
         const res = await api.get("/forms/unread/");
         const count = res?.data?.count || 0;
         if (mounted && count > 0) {

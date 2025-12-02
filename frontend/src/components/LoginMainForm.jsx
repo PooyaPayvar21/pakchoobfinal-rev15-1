@@ -48,6 +48,12 @@ const LoginMainForm = ({ userType, onLoginSuccess }) => {
         case "paint":
           navigate("/kpidashboard");
           break;
+        case "superadmin":
+        case "ceo":
+        case "management":
+        case "manager":
+          navigate("/kpidashboard");
+          break;
         default:
           console.warn("Unknown user type:", userTypeState);
           setError("Unknown user type. Contact support.");

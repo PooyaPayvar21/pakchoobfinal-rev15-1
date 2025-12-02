@@ -11,6 +11,7 @@ import LineChartOverview from "../components/Charts/LineChartOverview";
 import BarChartOverview from "../components/Charts/BarChartOverview";
 import * as XLSX from "xlsx";
 import PropTypes from "prop-types";
+import { kpiApi } from "../services/kpiApi";
 
 // Chart Filter Component
 const ChartFilterControls = ({
@@ -145,6 +146,178 @@ const KpiOverview = () => {
     line: { selectedLabels: [], dateRange: { start: null, end: null } },
     bar: { selectedLabels: [] },
   });
+
+  // Text normalization helpers (to handle Persian forms and mojibake)
+  const normalizePersianChars = useCallback(
+    (s) => String(s).replaceAll("ي", "ی").replaceAll("ك", "ک"),
+    []
+  );
+  const looksMojibake = useCallback((s) => /[ØÙÛÂÃ±]/.test(String(s)), []);
+  const fixText = useCallback(
+    (s) => {
+      if (s == null) return "";
+      const str = String(s);
+      if (!looksMojibake(str)) return normalizePersianChars(str);
+      try {
+        const bytes = new Uint8Array(Array.from(str, (ch) => ch.charCodeAt(0)));
+        const decoded = new TextDecoder("utf-8").decode(bytes);
+        return normalizePersianChars(decoded);
+      } catch {
+        return normalizePersianChars(str);
+      }
+    },
+    [looksMojibake, normalizePersianChars]
+  );
+
+  // Auto-load KPI data from kpientry
+  useEffect(() => {
+    const loadManagementOverview = async () => {
+      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      const managerName = fixText(info.full_name || "");
+      const managerDepartman = String(info.departman || "");
+      const isManagement = [
+        "management",
+        "manager",
+        "ceo",
+        "superadmin",
+      ].includes(String(info.role || "").toLowerCase());
+      if (!managerName || originalData.length > 0) return;
+      setIsLoading(true);
+      try {
+        const attempts = [
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: false,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: managerDepartman,
+            not_managed: true,
+            outside_department: false,
+          },
+          {
+            manager: "",
+            category: "All",
+            departman: managerDepartman,
+            not_managed: false,
+            outside_department: true,
+          },
+          {
+            manager: managerName,
+            category: "All",
+            departman: "",
+            not_managed: false,
+            outside_department: true,
+          },
+        ];
+        const results = await Promise.all(
+          attempts.map((params) =>
+            kpiApi
+              .fetchSubordinateEntries(params)
+              .then((resp) => resp)
+              .catch(() => null)
+          )
+        );
+        const taskMap = new Map();
+        results.forEach((resp) => {
+          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+          arr.forEach((t) => {
+            const key = t.row ?? t.id;
+            if (key == null) return;
+            if (!taskMap.has(key)) taskMap.set(key, t);
+          });
+        });
+        const tasks = Array.from(taskMap.values());
+        const managerFull = managerName.trim();
+        const filteredByManager = tasks.filter((t) => {
+          const dm = fixText(t.direct_management || "").trim();
+          const mgr = fixText(t.manager || t.manager_name || "").trim();
+          const fn = fixText(t.full_name || "").trim();
+          if (dm && dm === managerFull) return true;
+          if (mgr && mgr === managerFull) return true;
+          if (fn === managerFull) return false;
+          return true;
+        });
+        const filtered =
+          filteredByManager.length > 0
+            ? filteredByManager
+            : isManagement
+            ? tasks.filter(
+                (t) =>
+                  fixText(t.departman || "").trim() ===
+                  fixText(managerDepartman).trim()
+              )
+            : tasks; // if not management and no direct matches, show all fetched tasks
+
+        // Aggregate by KPI name (KPIFa)
+        const labelCounts = new Map();
+        const monthSet = new Set();
+        const monthLabelCounts = new Map(); // key: month, value: Map(label -> count)
+
+        filtered.forEach((t) => {
+          const label = fixText(t.kpi_fa || t.KPIFa || "").trim();
+          if (!label) return;
+          labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+
+          const dt = new Date(t.created_at || t.createdAt || 0);
+          if (!Number.isNaN(dt.getTime())) {
+            const monthKey = `${dt.getFullYear()}-${String(
+              dt.getMonth() + 1
+            ).padStart(2, "0")}`;
+            monthSet.add(monthKey);
+            const perLabel = monthLabelCounts.get(monthKey) || new Map();
+            perLabel.set(label, (perLabel.get(label) || 0) + 1);
+            monthLabelCounts.set(monthKey, perLabel);
+          }
+        });
+
+        const labelAggregatedData = Array.from(labelCounts.entries()).map(
+          ([name, count]) => ({
+            name,
+            size: count,
+          })
+        );
+
+        const monthsSorted = Array.from(monthSet.values()).sort();
+        const monthly = monthsSorted.map((m) => {
+          const entry = { name: m };
+          const perLabel = monthLabelCounts.get(m) || new Map();
+          Array.from(labelCounts.keys()).forEach((l) => {
+            entry[l] = perLabel.get(l) || 0;
+          });
+          // Ensure dynamic labels are present too
+          perLabel.forEach((val, lab) => {
+            entry[lab] = val;
+          });
+          return entry;
+        });
+
+        const dynamicLabels = Array.from(labelCounts.keys());
+        setLabels(dynamicLabels);
+        setOriginalData(labelAggregatedData);
+        setFilteredData([...labelAggregatedData]);
+        setMonthlyData(monthly);
+        setGlobalFilters((prev) => ({
+          ...prev,
+          selectedLabels: labelAggregatedData.map((item) => item.name),
+        }));
+        if (labelAggregatedData.length === 0) {
+          toast.info("هیچ داده‌ای برای نمایش یافت نشد");
+        }
+      } catch (e) {
+        console.error("Error loading management overview:", e);
+        toast.error("خطا در بارگذاری داده‌ها");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadManagementOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Memoize filtered data calculation
   const applyFilters = useCallback(
@@ -612,10 +785,16 @@ const KpiOverview = () => {
                   <div className="h-96">
                     <AreaChartOverview
                       data={monthlyData}
-                      labels={chartFilters.area.selectedLabels.length > 0 
-                        ? chartFilters.area.selectedLabels 
-                        : originalData.map(item => item.name)}
-                      onLabelClick={(label) => handleLabelFilterChange({ target: { name: label, checked: true } })}
+                      labels={
+                        chartFilters.area.selectedLabels.length > 0
+                          ? chartFilters.area.selectedLabels
+                          : originalData.map((item) => item.name)
+                      }
+                      onLabelClick={(label) =>
+                        handleLabelFilterChange({
+                          target: { name: label, checked: true },
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -639,10 +818,16 @@ const KpiOverview = () => {
                   <div className="h-96">
                     <LineChartOverview
                       data={monthlyData}
-                      labels={chartFilters.line.selectedLabels.length > 0 
-                        ? chartFilters.line.selectedLabels 
-                        : originalData.map(item => item.name)}
-                      onLabelClick={(label) => handleLabelFilterChange({ target: { name: label, checked: true } })}
+                      labels={
+                        chartFilters.line.selectedLabels.length > 0
+                          ? chartFilters.line.selectedLabels
+                          : originalData.map((item) => item.name)
+                      }
+                      onLabelClick={(label) =>
+                        handleLabelFilterChange({
+                          target: { name: label, checked: true },
+                        })
+                      }
                     />
                   </div>
                 </div>

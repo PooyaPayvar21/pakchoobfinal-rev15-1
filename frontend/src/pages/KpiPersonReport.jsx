@@ -30,6 +30,15 @@ function KpiPersonReport() {
       return "";
     }
   }, []);
+  const isManagement = useMemo(() => {
+    try {
+      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      const role = String(info.role || "").toLowerCase();
+      return ["management", "manager", "ceo", "superadmin"].includes(role);
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,7 +96,21 @@ function KpiPersonReport() {
           });
         });
         const tasks = Array.from(taskMap.values());
-        const mapped = tasks
+        const managerFull = String(managerName || "").trim();
+        const managementFiltered = isManagement
+          ? tasks.filter((t) => {
+              const dm = String(t.direct_management || "").trim();
+              const mgr = String(t.manager || t.manager_name || "").trim();
+              const fn = String(t.full_name || "").trim();
+              const role = String(t.role || "").trim();
+              if (dm && dm === managerFull) return true;
+              if (mgr && mgr === managerFull) return true;
+              if (fn === managerFull) return false;
+              if (role && /مدیر/i.test(role)) return false;
+              return true;
+            })
+          : tasks;
+        const mapped = managementFiltered
           .filter((t) => String(t.personal_code) === String(personal_code))
           .map((t) => ({
             id: t.row,
@@ -113,14 +136,14 @@ function KpiPersonReport() {
             departman: t.departman || "",
           }));
         setEntries(mapped);
-      } catch (e) {
+      } catch {
         toast.error("خطا در دریافت گزارش پرسنل");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [managerName, managerDepartman, personal_code]);
+  }, [managerName, managerDepartman, personal_code, isManagement]);
 
   const uniqueSeasons = useMemo(() => {
     const s = new Set();

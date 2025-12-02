@@ -2715,6 +2715,10 @@ def register_view(request):
 
         # Validate user type
         if user_type not in [
+            "superadmin",
+            "ceo",
+            "management",
+            "manager",
             "pm",
             "mechanic",
             "generalmechanic",
@@ -2731,9 +2735,9 @@ def register_view(request):
             )
 
         # Validate role
-        if role not in ["technician", "management", "operator"]:
+        if role not in ["superadmin", "ceo", "management", "manager", "technician", "operator"]:
             return Response(
-                {"status": "error", "message": "Invalid role"},
+                {"status": "error", "message": f"Invalid role: {role}. Must be one of: superadmin, ceo, management, manager, technician, operator"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

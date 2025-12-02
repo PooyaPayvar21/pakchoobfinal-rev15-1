@@ -31,6 +31,15 @@ function KpiReport() {
       return "";
     }
   }, []);
+  const isManagement = useMemo(() => {
+    try {
+      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      const role = String(info.role || "").toLowerCase();
+      return ["management", "manager", "ceo", "superadmin"].includes(role);
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,7 +93,21 @@ function KpiReport() {
           });
         });
         const tasks = Array.from(taskMap.values());
-        const mapped = tasks
+        const managerFull = String(managerName || "").trim();
+        const managementFiltered = isManagement
+          ? tasks.filter((t) => {
+              const dm = String(t.direct_management || "").trim();
+              const mgr = String(t.manager || t.manager_name || "").trim();
+              const fn = String(t.full_name || "").trim();
+              const role = String(t.role || "").trim();
+              if (dm && dm === managerFull) return true;
+              if (mgr && mgr === managerFull) return true;
+              if (fn === managerFull) return false;
+              if (role && /مدیر/i.test(role)) return false;
+              return true;
+            })
+          : tasks;
+        const mapped = managementFiltered
           .filter(
             (t) => String(t.kpi_fa || "").trim() === decodeURIComponent(kpiName)
           )
@@ -112,14 +135,14 @@ function KpiReport() {
             departman: t.departman || "",
           }));
         setEntries(mapped);
-      } catch (e) {
+      } catch {
         toast.error("خطا در دریافت گزارش KPI");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [managerName, managerDepartman, kpiName]);
+  }, [managerName, managerDepartman, kpiName, isManagement]);
 
   const uniqueSeasons = useMemo(() => {
     const s = new Set();

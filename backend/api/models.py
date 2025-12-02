@@ -18,6 +18,10 @@ class Section(models.Model):
 
 class LoginUser(AbstractUser):
     USER_TYPE_CHOICE = (
+        ("ceo", "CEO"),
+        ("management", "Management"),
+        ("manager", "Manager"),
+        ("superadmin", "SuperAdmin"),
         ("pm", "PM"),
         ("production", "Production"),
         ("generalmechanic", "General Mechanic"),
@@ -30,8 +34,11 @@ class LoginUser(AbstractUser):
     )
 
     ROLE_CHOICES = (
-        ("technician", "Technician"),
+        ("ceo", "CEO"),
         ("management", "Management"),
+        ("manager", "Manager"),
+        ("superadmin", "SuperAdmin"),
+        ("technician", "Technician"),
         ("operator", "Operator"),
     )
 

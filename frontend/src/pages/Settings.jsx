@@ -20,6 +20,14 @@ const Settings = () => {
       : "dark";
   });
   const isLight = theme === "light";
+  const [kpiSeed, setKpiSeed] = useState({
+    personal_code: "",
+    full_name: "حامد حاجی حسین زاده",
+    company_name: "",
+    role: "management",
+    direct_management: "",
+    departman: "فنی و مهندسی-نت",
+  });
 
   useEffect(() => {
     const ne = localStorage.getItem("notifications_enabled");
@@ -182,6 +190,101 @@ const Settings = () => {
           </form>
         </div>
 
+        <div
+          className={`mt-8 backdrop-blur-md shadow-lg rounded-xl border p-6 ${
+            isLight
+              ? "bg-white/90 border-gray-200"
+              : "bg-gray-800 bg-opacity-50 border-gray-700"
+          }`}
+        >
+          <h2
+            className={`text-xl font-semibold mb-4 ${
+              isLight ? "text-gray-900" : "text-gray-100"
+            }`}
+          >
+            ساخت کاربر مدیریت (KPI)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" dir="rtl">
+            <input
+              type="text"
+              value={kpiSeed.full_name}
+              onChange={(e) =>
+                setKpiSeed((p) => ({ ...p, full_name: e.target.value }))
+              }
+              placeholder="نام و نام‌خانوادگی"
+              className={`w-full rounded-lg px-4 py-2 border-2 ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-300"
+                  : "bg-gray-800/50 text-white border-white/20"
+              }`}
+            />
+            <input
+              type="text"
+              value={kpiSeed.departman}
+              onChange={(e) =>
+                setKpiSeed((p) => ({ ...p, departman: e.target.value }))
+              }
+              placeholder="دپارتمان"
+              className={`w-full rounded-lg px-4 py-2 border-2 ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-300"
+                  : "bg-gray-800/50 text-white border-white/20"
+              }`}
+            />
+            <input
+              type="text"
+              value={kpiSeed.company_name}
+              onChange={(e) =>
+                setKpiSeed((p) => ({ ...p, company_name: e.target.value }))
+              }
+              placeholder="شرکت"
+              className={`w-full rounded-lg px-4 py-2 border-2 ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-300"
+                  : "bg-gray-800/50 text-white border-white/20"
+              }`}
+            />
+            <input
+              type="text"
+              value={kpiSeed.personal_code}
+              onChange={(e) =>
+                setKpiSeed((p) => ({ ...p, personal_code: e.target.value }))
+              }
+              placeholder="کد پرسنلی (اختیاری)"
+              className={`w-full rounded-lg px-4 py-2 border-2 ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-300"
+                  : "bg-gray-800/50 text-white border-white/20"
+              }`}
+            />
+            <input
+              type="text"
+              value={kpiSeed.role}
+              onChange={(e) =>
+                setKpiSeed((p) => ({ ...p, role: e.target.value }))
+              }
+              placeholder="نقش"
+              className={`w-full rounded-lg px-4 py-2 border-2 ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-300"
+                  : "bg-gray-800/50 text-white border-white/20"
+              }`}
+            />
+          </div>
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem("kpiUserInfo", JSON.stringify(kpiSeed));
+                window.dispatchEvent(new Event("storage"));
+                toast.success("کاربر مدیریت ثبت شد");
+              }}
+              className="h-11 px-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg"
+            >
+              ثبت کاربر مدیریت
+            </button>
+          </div>
+        </div>
         <div
           className={`mt-8 backdrop-blur-md shadow-lg rounded-xl border p-6 ${
             isLight
