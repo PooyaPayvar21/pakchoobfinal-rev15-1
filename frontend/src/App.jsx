@@ -31,6 +31,7 @@ import KpiUserInfo from "./pages/KpiUserInfo";
 import KpiManagementRelation from "./pages/KpiManagementRelation";
 import KpiManagerReview from "./pages/KpiManagerReview";
 import KpiPeopleWorks from "./pages/KpiPeopleWorks";
+import KpiBulkAssign from "./pages/KpiBulkAssign";
 import KpiPersonReport from "./pages/KpiPersonReport";
 import KpiReport from "./pages/KpiReport";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -177,6 +178,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="management">
                   <KpiManagerReview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kpibulkassign"
+              element={
+                <ProtectedRoute requiredRole="management">
+                  <KpiBulkAssign />
                 </ProtectedRoute>
               }
             />

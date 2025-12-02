@@ -398,7 +398,13 @@ function KpiReport() {
               بازگشت
             </button>
             <button
-              onClick={() => navigate(`/kpimanagerreview?kpi=${encodeURIComponent(kpiName)}`)}
+              onClick={() =>
+                navigate(
+                  `/kpimanagerreview?kpi=${encodeURIComponent(
+                    decodeURIComponent(kpiName)
+                  )}`
+                )
+              }
               className={`px-3 py-2 rounded ${
                 isLight
                   ? "bg-purple-600 text-white hover:bg-purple-700"

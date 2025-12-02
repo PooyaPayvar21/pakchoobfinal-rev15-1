@@ -31,6 +31,9 @@ const KpiPeopleWorks = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [kpiSearch, setKpiSearch] = useState("");
+  const [bulkTarget, setBulkTarget] = useState("all");
+  const [bulkUserCode, setBulkUserCode] = useState("");
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -304,6 +307,70 @@ const KpiPeopleWorks = () => {
     }
   };
 
+  const handleBulkAddKpiRows = async () => {
+    try {
+      const targets =
+        bulkTarget === "all"
+          ? uniquePeople
+          : uniquePeople.filter(
+              (p) => String(p.personal_code) === String(bulkUserCode)
+            );
+
+      if (targets.length === 0) {
+        toast.error("کاربری برای افزودن یافت نشد");
+        return;
+      }
+
+      setIsBulkAdding(true);
+      const results = await Promise.allSettled(
+        targets.map((p) => {
+          const base = entries.find(
+            (e) => String(e.personal_code) === String(p.personal_code)
+          );
+          const payload = {
+            personal_code: p.personal_code,
+            full_name: p.full_name || "",
+            company_name: "",
+            role: base?.role || "",
+            direct_management: base?.direct_management || managerName || "",
+            departman: managerDepartman || "",
+            category: "All",
+            tasks: [
+              {
+                obj_weight: "",
+                KPIEn: "",
+                KPIFa: "",
+                KPI_Info: "",
+                target: "",
+                KPI_weight: "",
+                KPI_Achievement: "",
+                Percentage_Achievement: "",
+                Score_Achievement: "",
+                Type: "Editable",
+                Sum: "",
+              },
+            ],
+          };
+          return kpiApi.submitKPIEntry(payload);
+        })
+      );
+
+      const successCount = results.filter(
+        (r) => r.status === "fulfilled"
+      ).length;
+      const failureCount = results.length - successCount;
+
+      if (successCount > 0)
+        toast.success(`افزودن برای ${successCount} نفر انجام شد`);
+      if (failureCount > 0)
+        toast.error(`افزودن برای ${failureCount} نفر ناموفق بود`);
+    } catch {
+      toast.error("خطا در افزودن ردیف KPI");
+    } finally {
+      setIsBulkAdding(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-auto relative z-10">
       <Header title={"پرسنل و KPI ها"} />
@@ -422,6 +489,18 @@ const KpiPeopleWorks = () => {
                   {selectedPerson && `سوابق ${selectedPerson.full_name}`}
                   {selectedKpi && `سوابق KPI: ${selectedKpi}`}
                 </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigate("/kpibulkassign")}
+                    className={`px-3 py-2 rounded cursor-pointer ${
+                      isLight
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-blue-700 text-white hover:bg-blue-600"
+                    }`}
+                  >
+                    افزودن ردیف KPI
+                  </button>
+                </div>
                 {(selectedPerson || selectedKpi) && (
                   <button
                     onClick={clearSelections}

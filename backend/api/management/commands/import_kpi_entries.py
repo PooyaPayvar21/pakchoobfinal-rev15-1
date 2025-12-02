@@ -10,11 +10,21 @@ class Command(BaseCommand):
         parser.add_argument("--file", type=str, required=True)
         parser.add_argument("--sheet", type=str, default="Sheet1")
         parser.add_argument("--season", type=str, default="")
+        parser.add_argument("--reset", action="store_true", help="Delete all KPIEntry rows before import")
 
     def handle(self, *args, **options):
         file_path = options.get("file")
         sheet_name = options.get("sheet")
         season = options.get("season")
+        reset = options.get("reset")
+
+        if reset:
+            try:
+                deleted, _ = KPIEntry.objects.all().delete()
+                self.stdout.write(self.style.WARNING(f"Deleted existing KPIEntry rows: {deleted}"))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Failed to reset KPIEntry table: {str(e)}"))
+                return
 
         try:
             import openpyxl
@@ -101,7 +111,20 @@ class Command(BaseCommand):
                         data[field] = None
                     else:
                         try:
-                            data[field] = Decimal(str(value))
+                            num = Decimal(str(value))
+                            # Heuristic: Excel percent cells come in as fractions (e.g., 90% -> 0.9)
+                            # For percent-like fields, scale fractional values to 0-100 range
+                            percent_like = {
+                                "obj_weight",
+                                "target",
+                                "kpi_weight",
+                                "kpi_achievement",
+                                "score_achievement",
+                                "score_achievement_alt",
+                            }
+                            if field in percent_like and num is not None and num > 0 and num <= 1:
+                                num = num * Decimal(100)
+                            data[field] = num
                         except Exception:
                             data[field] = None
                 else:

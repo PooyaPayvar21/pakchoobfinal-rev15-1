@@ -50,7 +50,10 @@ const KpiManagerReview = () => {
     if (value === "" || value === null || value === undefined) return "";
     const n = Number(value);
     if (Number.isNaN(n)) return value;
-    return (n * 100).toString();
+    let num = n;
+    if (num > 0 && num <= 1) num = num * 100;
+    while (num > 100) num = num / 10;
+    return Math.round(num).toString();
   };
   const parsePercent = (value) => {
     if (value === "" || value === null || value === undefined) return "";
@@ -176,11 +179,6 @@ const KpiManagerReview = () => {
     const pc = searchParams.get("pc");
     if (pc) {
       setActiveUser(pc);
-    }
-    const kpi = searchParams.get("kpi");
-    if (kpi) {
-      // ensure table can render without selecting a user when KPI is provided
-      setActiveUser((prev) => prev || "__kpi__");
     }
   }, [searchParams]);
 
@@ -557,8 +555,9 @@ const KpiManagerReview = () => {
   const displayedEntries = useMemo(
     () =>
       filteredEntries.filter((row) => {
-        const byUser =
-          !activeUser || String(row.personal_code) === String(activeUser);
+        const byUser = activeUser
+          ? String(row.personal_code) === String(activeUser)
+          : true;
         const byKpi =
           !kpiParam ||
           String(row.KPIFa).trim() === decodeURIComponent(kpiParam);
@@ -889,18 +888,20 @@ const KpiManagerReview = () => {
                   </button>
                 </div>
               )}
-              <div className="flex items-center justify-between mb-3">
-                <div className={isLight ? "text-gray-800" : "text-gray-200"}>
-                  افزودن ردیف جدید برای کاربر انتخاب شده
+              {activeUser && (
+                <div className="flex items-center justify-between mb-3">
+                  <div className={isLight ? "text-gray-800" : "text-gray-200"}>
+                    افزودن ردیف جدید برای کاربر انتخاب شده
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddRow}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    افزودن ردیف
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddRow}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
-                >
-                  افزودن ردیف
-                </button>
-              </div>
+              )}
               <table className="w-full text-sm mb-5">
                 <thead>
                   <tr className="text-center">
