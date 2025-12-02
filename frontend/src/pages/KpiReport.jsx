@@ -398,6 +398,16 @@ function KpiReport() {
               بازگشت
             </button>
             <button
+              onClick={() => navigate("/kpibulkassign")}
+              className={`px-3 py-2 rounded cursor-pointer ${
+                isLight
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-blue-700 text-white hover:bg-blue-600"
+              }`}
+            >
+              افزودن ردیف KPI
+            </button>
+            <button
               onClick={() =>
                 navigate(
                   `/kpimanagerreview?kpi=${encodeURIComponent(

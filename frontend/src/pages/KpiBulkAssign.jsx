@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Header from "../components/Common/Header";
 import { ToastContainer, toast } from "react-toastify";
 import { kpiApi } from "../services/kpiApi";
+import { useNavigate } from "react-router-dom";
 
 function KpiBulkAssign() {
   const [entries, setEntries] = useState([]);
@@ -22,6 +23,7 @@ function KpiBulkAssign() {
   const [scope, setScope] = useState("selected");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [newKpi, setNewKpi] = useState({
     KPIFa: "",
     KPIEn: "",
@@ -379,6 +381,16 @@ function KpiBulkAssign() {
             isLight ? "bg-white" : "bg-gray-800"
           }`}
         >
+          <button
+            onClick={() => navigate("/kpipeopleworks")}
+            className={`px-3 py-2 rounded mb-2 ${
+              isLight
+                ? "bg-gray-200 hover:bg-gray-300"
+                : "bg-gray-600 hover:bg-gray-500"
+            }`}
+          >
+            بازگشت
+          </button>
           <div className="grid grid-cols-1 gap-6">
             {scope !== "all" && (
               <div
