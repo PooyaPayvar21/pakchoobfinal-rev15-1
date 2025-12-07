@@ -7,6 +7,13 @@ import { kpiApi } from "../services/kpiApi";
 function KpiReport() {
   const { kpiName } = useParams();
   const navigate = useNavigate();
+  const safeDecode = (s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  };
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [seasonFilter, setSeasonFilter] = useState("");
@@ -108,9 +115,7 @@ function KpiReport() {
             })
           : tasks;
         const mapped = managementFiltered
-          .filter(
-            (t) => String(t.kpi_fa || "").trim() === decodeURIComponent(kpiName)
-          )
+          .filter((t) => String(t.kpi_fa || "").trim() === safeDecode(kpiName))
           .map((t) => ({
             id: t.row,
             KPIFa: t.kpi_fa || "",
@@ -315,6 +320,8 @@ function KpiReport() {
   const [editValues, setEditValues] = useState({});
   const [savingRow, setSavingRow] = useState(null);
   const [selectedQuarter, setSelectedQuarter] = useState({});
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState("desc");
   const formatDate = (v) => {
     if (!v) return "";
     const d = new Date(v);
@@ -322,6 +329,88 @@ function KpiReport() {
       ? String(v)
       : d.toLocaleDateString("fa-IR");
   };
+
+  const formatTarget = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const s = String(v).trim();
+    const n = Number(s.replace(/,/g, ""));
+    if (Number.isNaN(n)) return s;
+    if (n > 0 && n <= 1.0001) return String(Math.round(n * 100));
+    return String(n);
+  };
+
+  const personLastDate = useMemo(() => {
+    const m = new Map();
+    filteredEntries.forEach((e) => {
+      const key = String(e.personal_code || "");
+      const dt = new Date(e.created_at || 0).getTime() || 0;
+      m.set(key, Math.max(m.get(key) || 0, dt));
+    });
+    return m;
+  }, [filteredEntries]);
+
+  const personDepartman = useMemo(() => {
+    const m = new Map();
+    filteredEntries.forEach((e) => {
+      const key = String(e.personal_code || "");
+      const dep = String(e.departman || "").trim();
+      if (!key || !dep) return;
+      const cur = m.get(key) || new Map();
+      cur.set(dep, (cur.get(dep) || 0) + 1);
+      m.set(key, cur);
+    });
+    const out = new Map();
+    Array.from(m.entries()).forEach(([key, mm]) => {
+      const best = Array.from(mm.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+      out.set(key, best || "");
+    });
+    return out;
+  }, [filteredEntries]);
+
+  const toggleSort = (key) => {
+    setSortBy((prev) => (prev === key ? prev : key));
+    setSortDir((prev) =>
+      sortBy === key ? (prev === "asc" ? "desc" : "asc") : "desc"
+    );
+  };
+
+  const tableRows = useMemo(() => {
+    const rows = personQuarterAchievements.map((p) => ({
+      personal_code: p.personal_code,
+      full_name: p.full_name,
+      q1: p.q1,
+      q2: p.q2,
+      q3: p.q3,
+      entryCount: personEntryCounts.get(String(p.personal_code)) || 0,
+      lastDate: personLastDate.get(String(p.personal_code)) || 0,
+      departman: personDepartman.get(String(p.personal_code)) || "",
+    }));
+    const dir = sortDir === "asc" ? 1 : -1;
+    const by = sortBy;
+    rows.sort((a, b) => {
+      if (by === "name")
+        return dir * String(a.full_name).localeCompare(String(b.full_name));
+      if (by === "code")
+        return (
+          dir * String(a.personal_code).localeCompare(String(b.personal_code))
+        );
+      if (by === "count")
+        return dir * ((a.entryCount || 0) - (b.entryCount || 0));
+      if (by === "q1") return dir * ((a.q1 || 0) - (b.q1 || 0));
+      if (by === "q2") return dir * ((a.q2 || 0) - (b.q2 || 0));
+      if (by === "q3") return dir * ((a.q3 || 0) - (b.q3 || 0));
+      if (by === "last") return dir * ((a.lastDate || 0) - (b.lastDate || 0));
+      return dir * String(a.full_name).localeCompare(String(b.full_name));
+    });
+    return rows;
+  }, [
+    personQuarterAchievements,
+    personEntryCounts,
+    personLastDate,
+    personDepartman,
+    sortBy,
+    sortDir,
+  ]);
 
   return (
     <div className="flex-1 overflow-auto relative z-10">
@@ -420,7 +509,7 @@ function KpiReport() {
             >
               بازگشت
             </button>
-            <button
+            {/* <button
               onClick={() => navigate("/kpibulkassign")}
               className={`px-3 py-2 rounded cursor-pointer ${
                 isLight
@@ -434,7 +523,7 @@ function KpiReport() {
               onClick={() =>
                 navigate(
                   `/kpimanagerreview?kpi=${encodeURIComponent(
-                    decodeURIComponent(kpiName)
+                    safeDecode(kpiName)
                   )}`
                 )
               }
@@ -445,7 +534,7 @@ function KpiReport() {
               }`}
             >
               بازبینی مدیر
-            </button>
+            </button> */}
             <button
               onClick={() => {
                 setSeasonFilter("");
@@ -499,7 +588,7 @@ function KpiReport() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `kpi_${decodeURIComponent(kpiName)}_report.csv`;
+                a.download = `kpi_${safeDecode(kpiName)}_report.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -512,21 +601,58 @@ function KpiReport() {
               خروجی CSV
             </button>
           </div>
-          <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              نام KPI: {decodeURIComponent(kpiName)}
+          <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+            <div
+              className={`p-3 rounded border  ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">نام KPI</div>
+              <div className="text-base font-semibold break-words">
+                {safeDecode(kpiName)}
+              </div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              تعداد رکورد: {stats.count}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">تعداد رکورد</div>
+              <div className="text-base font-semibold">{stats.count}</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              تعداد افراد: {stats.peopleCount}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">تعداد افراد</div>
+              <div className="text-base font-semibold">{stats.peopleCount}</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              میانگین درصد: {stats.avgPct}%
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">میانگین درصد</div>
+              <div className="text-base font-semibold">{stats.avgPct}%</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              تایید شده: {stats.confirmed}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">تایید شده</div>
+              <div className="text-base font-semibold">{stats.confirmed}</div>
             </div>
           </div>
 
@@ -539,125 +665,194 @@ function KpiReport() {
               داده‌ای یافت نشد
             </div>
           ) : (
-            <ul className="divide-y divide-gray-300">
-              {personQuarterAchievements.map((p) => (
-                <li key={p.personal_code} className="py-3 px-2">
-                  <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-                    <span>
-                      {p.full_name} ({p.personal_code})
-                    </span>
-                    <span
-                      className={`ml-2 px-2 py-0.5 rounded text-xs ${
+            <div className="overflow-auto">
+              <table className="w-full text-sm text-center">
+                <thead className="sticky top-0 z-10 ">
+                  <tr className={isLight ? "bg-gray-100 " : "bg-gray-700 "}>
+                    <th className="px-2 py-2 text-center">ردیف</th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("name")}
+                    >
+                      نام
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("code")}
+                    >
+                      کد
+                    </th>
+                    <th className="px-2 py-2 text-center">دپارتمان</th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("q1")}
+                    >
+                      Q1
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("q2")}
+                    >
+                      Q2
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("q3")}
+                    >
+                      Q3
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("count")}
+                    >
+                      تعداد
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("last")}
+                    >
+                      آخرین بروز
+                    </th>
+                    <th className="px-2 py-2 text-center">ویرایش</th>
+                  </tr>
+                </thead>
+                <tbody
+                  className={
+                    isLight
+                      ? "divide-y divide-gray-200"
+                      : "divide-y divide-gray-600"
+                  }
+                >
+                  {tableRows.map((row, index) => (
+                    <tr
+                      key={row.personal_code}
+                      className={
                         isLight
-                          ? "bg-gray-200 text-gray-700"
-                          : "bg-gray-600 text-gray-200"
-                      }`}
-                    >
-                      {personEntryCounts.get(String(p.personal_code)) || 0}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                    <div
-                      className={isLight ? "text-gray-700" : "text-gray-300"}
-                    >
-                      Q1: {p.q1 ?? "-"}
-                    </div>
-                    <div
-                      className={isLight ? "text-gray-700" : "text-gray-300"}
-                    >
-                      Q2: {p.q2 ?? "-"}
-                    </div>
-                    <div
-                      className={isLight ? "text-gray-700" : "text-gray-300"}
-                    >
-                      Q3: {p.q3 ?? "-"}
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 justify-end">
-                    <select
-                      value={selectedQuarter[p.personal_code] || "Q1"}
-                      onChange={(ev) =>
-                        setSelectedQuarter((prev) => ({
-                          ...prev,
-                          [p.personal_code]: ev.target.value,
-                        }))
+                          ? "hover:bg-gray-50 text-center"
+                          : "hover:bg-gray-700 text-center"
                       }
-                      className={`px-2 py-1 rounded border text-sm ${
-                        isLight
-                          ? "bg-white text-gray-900 border-gray-300"
-                          : "bg-gray-800 text-gray-200 border-gray-600"
-                      }`}
                     >
-                      <option value="Q1">Q1</option>
-                      <option value="Q2">Q2</option>
-                      <option value="Q3">Q3</option>
-                    </select>
-                    <input
-                      type="number"
-                      value={
-                        editValues[p.personal_code] ??
-                        (() => {
-                          const q = selectedQuarter[p.personal_code] || "Q1";
-                          if (q === "Q1") return p.q1 ?? "";
-                          if (q === "Q2") return p.q2 ?? "";
-                          return p.q3 ?? "";
-                        })()
-                      }
-                      onChange={(ev) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          [p.personal_code]: ev.target.value,
-                        }))
-                      }
-                      className={`w-24 px-2 py-1 rounded border text-sm ${
-                        isLight
-                          ? "bg-white text-gray-900 border-gray-300"
-                          : "bg-gray-800 text-gray-200 border-gray-600"
-                      }`}
-                    />
-                    <button
-                      onClick={async () => {
-                        try {
-                          setSavingRow(p.personal_code);
-                          const val = editValues[p.personal_code] ?? "";
-                          const q = selectedQuarter[p.personal_code] || "Q1";
-                          const target = (personQuarterRows.get(
-                            String(p.personal_code)
-                          ) || {})[q];
-                          if (!target) {
-                            toast.error("رکورد کوارتر انتخابی یافت نشد");
-                            return;
+                      <td className="px-2 py-2 text-center">{index + 1}</td>
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          onClick={() =>
+                            navigate(`/kpi/person/${row.personal_code}`)
                           }
-                          await kpiApi.updateKPIEntryRow(target.id, {
-                            kpi_achievement: val,
-                          });
-                          setEntries((prev) =>
-                            prev.map((x) =>
-                              x.id === target.id
-                                ? { ...x, KPI_Achievement: val }
-                                : x
-                            )
-                          );
-                          toast.success("امتیاز ثبت شد");
-                        } catch {
-                          toast.error("ثبت امتیاز با خطا مواجه شد");
-                        } finally {
-                          setSavingRow(null);
-                        }
-                      }}
-                      disabled={savingRow === p.personal_code}
-                      className={`px-3 py-1 rounded text-sm ${
-                        isLight
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-blue-500 text-white hover:bg-blue-600"
-                      }`}
-                    >
-                      ثبت
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                          className={
+                            isLight
+                              ? "hover:text-blue-700"
+                              : "hover:text-blue-300"
+                          }
+                        >
+                          {row.full_name}
+                        </button>
+                      </td>
+                      <td className="px-2 py-2">{row.personal_code}</td>
+                      <td className="px-2 py-2">{row.departman || ""}</td>
+                      <td className="px-2 py-2">
+                        {row.q1 == null ? "-" : formatTarget(row.q1)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {row.q2 == null ? "-" : formatTarget(row.q2)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {row.q3 == null ? "-" : formatTarget(row.q3)}
+                      </td>
+                      <td className="px-2 py-2">{row.entryCount}</td>
+                      <td className="px-2 py-2">
+                        {row.lastDate ? formatDate(row.lastDate) : ""}
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-end gap-2">
+                          <select
+                            value={selectedQuarter[row.personal_code] || "Q1"}
+                            onChange={(ev) =>
+                              setSelectedQuarter((prev) => ({
+                                ...prev,
+                                [row.personal_code]: ev.target.value,
+                              }))
+                            }
+                            className={`px-2 py-1 rounded border text-xs ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                          >
+                            <option value="Q1">Q1</option>
+                            <option value="Q2">Q2</option>
+                            <option value="Q3">Q3</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={
+                              editValues[row.personal_code] ??
+                              (() => {
+                                const q =
+                                  selectedQuarter[row.personal_code] || "Q1";
+                                if (q === "Q1") return row.q1 ?? "";
+                                if (q === "Q2") return row.q2 ?? "";
+                                return row.q3 ?? "";
+                              })()
+                            }
+                            onChange={(ev) =>
+                              setEditValues((prev) => ({
+                                ...prev,
+                                [row.personal_code]: ev.target.value,
+                              }))
+                            }
+                            className={`w-20 px-2 py-1 rounded border text-xs ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                setSavingRow(row.personal_code);
+                                const val = editValues[row.personal_code] ?? "";
+                                const q =
+                                  selectedQuarter[row.personal_code] || "Q1";
+                                const target = (personQuarterRows.get(
+                                  String(row.personal_code)
+                                ) || {})[q];
+                                if (!target) {
+                                  toast.error("رکورد کوارتر انتخابی یافت نشد");
+                                  return;
+                                }
+                                await kpiApi.updateKPIEntryRow(target.id, {
+                                  kpi_achievement: val,
+                                });
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === target.id
+                                      ? { ...x, KPI_Achievement: val }
+                                      : x
+                                  )
+                                );
+                                toast.success("امتیاز ثبت شد");
+                              } catch {
+                                toast.error("ثبت امتیاز با خطا مواجه شد");
+                              } finally {
+                                setSavingRow(null);
+                              }
+                            }}
+                            disabled={savingRow === row.personal_code}
+                            className={`px-3 py-1 rounded text-xs ${
+                              isLight
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "bg-blue-500 text-white hover:bg-blue-600"
+                            }`}
+                          >
+                            ثبت
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>

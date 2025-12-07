@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import Header from "../components/Common/Header";
 import { kpiApi } from "../services/kpiApi";
 
 const KpiManagerReview = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const managerName = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
-      return info.full_name || "";
+      return info.full_name || localStorage.getItem("username") || "";
     } catch {
       return "";
     }
@@ -22,22 +22,46 @@ const KpiManagerReview = () => {
     KPIEn: "",
     KPIFa: "",
     KPI_Info: "",
+    Category: "",
     target: "",
     KPI_weight: "",
     KPI_Achievement: "",
     Percentage_Achievement: "",
     Score_Achievement: "",
     Type: "",
+    Status: "",
     Sum: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
   const pageSize = 10;
   const [activeUser, setActiveUser] = useState(null);
+  const [activeManager, setActiveManager] = useState(null);
+  const [managerCandidates, setManagerCandidates] = useState([]);
+  const [allPeople, setAllPeople] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const tableRef = useRef(null);
+  const [highlightTable, setHighlightTable] = useState(false);
   const managerDepartman = useMemo(() => {
     try {
       const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
       return info.departman || "";
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const departmanParam = useMemo(() => {
+    const v = searchParams.get("departman");
+    return v ? decodeURIComponent(v) : "";
+  }, [searchParams]);
+
+  // departman normalization helpers are defined later to reuse existing fixText
+
+  const managerPersonalCode = useMemo(() => {
+    try {
+      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      return info.personal_code || localStorage.getItem("personal_code") || "";
     } catch {
       return "";
     }
@@ -48,12 +72,11 @@ const KpiManagerReview = () => {
   const round2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
   const formatPercent = (value) => {
     if (value === "" || value === null || value === undefined) return "";
-    const n = Number(value);
-    if (Number.isNaN(n)) return value;
-    let num = n;
-    if (num > 0 && num <= 1) num = num * 100;
-    while (num > 100) num = num / 10;
-    return Math.round(num).toString();
+    const n = Number(String(value).replace(/,/g, ""));
+    if (Number.isNaN(n)) return String(value);
+    if (n > 0 && n <= 1.0001) return Math.round(n * 100).toString();
+    if (n > 1.0001 && n <= 10.0001) return Math.round(n * 10).toString();
+    return Math.round(n).toString();
   };
   const parsePercent = (value) => {
     if (value === "" || value === null || value === undefined) return "";
@@ -69,6 +92,33 @@ const KpiManagerReview = () => {
     return n.toString();
   };
 
+  const normalizeCategory = (value) => {
+    const s = String(value || "")
+      .replaceAll("ي", "ی")
+      .replaceAll("ك", "ک")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (!s) return "";
+    if (
+      [
+        "maintasks",
+        "main tasks",
+        "main-task",
+        "main",
+        "tasks",
+        "اصلی",
+        "وظایف اصلی",
+      ].includes(s)
+    )
+      return "MainTasks";
+    if (["projects", "پروژه", "پروژه‌ها", "کارهای پروژه", "فنی"].includes(s))
+      return "Projects";
+    return value;
+  };
+
+  const categoryOptions = ["MainTasks", "Projects"];
+
   const fetchEntries = async () => {
     if (!managerName) {
       return;
@@ -77,28 +127,28 @@ const KpiManagerReview = () => {
       const attempts = [
         {
           manager: managerName,
-          category,
+          category: category === "All" ? undefined : category,
           departman: managerDepartman,
           not_managed: false,
           outside_department: false,
         },
         {
           manager: managerName,
-          category,
+          category: category === "All" ? undefined : category,
           departman: managerDepartman,
           not_managed: true,
           outside_department: false,
         },
         {
           manager: "",
-          category,
+          category: category === "All" ? undefined : category,
           departman: managerDepartman,
           not_managed: false,
           outside_department: true,
         },
         {
           manager: managerName,
-          category,
+          category: category === "All" ? undefined : category,
           departman: "",
           not_managed: false,
           outside_department: true,
@@ -116,7 +166,9 @@ const KpiManagerReview = () => {
       results.forEach((resp) => {
         const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
         arr.forEach((t) => {
-          const key = t.row ?? t.id;
+          const baseId = t.row ?? t.id;
+          const catKey = normalizeCategory(t.category) || "uncategorized";
+          const key = baseId != null ? `${baseId}-${catKey}` : null;
           if (key == null) return;
           if (!taskMap.has(key)) taskMap.set(key, t);
         });
@@ -134,7 +186,14 @@ const KpiManagerReview = () => {
         if (role && /مدیر/i.test(role)) return false;
         return true;
       });
-      const mapped = filteredByManager.map((t) => ({
+      const byCategory =
+        category === "All"
+          ? filteredByManager
+          : filteredByManager.filter(
+              (t) =>
+                normalizeCategory(t.category) === normalizeCategory(category)
+            );
+      const mapped = byCategory.map((t) => ({
         id: t.row,
         row: t.row,
         obj_weight: t.obj_weight || "",
@@ -159,7 +218,9 @@ const KpiManagerReview = () => {
         full_name: t.full_name || "",
         direct_management: t.direct_management || "",
         role: t.role || "",
+        departman: t.departman || "",
         manager_name: t.manager || t.manager_name || "",
+        category: t.category || "",
       }));
       setEntries(mapped);
       setCurrentPage(1);
@@ -174,6 +235,176 @@ const KpiManagerReview = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [managerName, category, managerDepartman]);
+
+  useEffect(() => {
+    if (category === "All") {
+      clearFilters();
+      const pc = searchParams.get("pc") || "";
+      const dep = searchParams.get("departman") || "";
+      const obj = {};
+      if (pc) obj.pc = pc;
+      if (dep) obj.departman = dep;
+      setSearchParams(obj, { replace: true });
+      setCurrentPage(1);
+    }
+  }, [category, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const loadManagerOptions = async () => {
+      try {
+        const opts = await kpiApi.fetchKPIEntryOptions();
+        const dms = Array.isArray(opts.direct_managements)
+          ? opts.direct_managements
+          : [];
+        const people = Array.isArray(opts.people) ? opts.people : [];
+        const looksMojibake = (s) => /[ØÙÛÂÃ±]/.test(String(s));
+        const normalizePersianChars = (s) =>
+          String(s)
+            .replaceAll("ي", "ی")
+            .replaceAll("ك", "ک")
+            .replace(/[\u200c\u200f]/g, "");
+        const fixText = (s) => {
+          if (s == null) return "";
+          const str = String(s);
+          if (!looksMojibake(str)) return normalizePersianChars(str);
+          try {
+            const bytes = new Uint8Array(
+              Array.from(str, (ch) => ch.charCodeAt(0))
+            );
+            const decoded = new TextDecoder("utf-8").decode(bytes);
+            return normalizePersianChars(decoded);
+          } catch {
+            return normalizePersianChars(str);
+          }
+        };
+
+        const uname = String(localStorage.getItem("username") || "")
+          .trim()
+          .toLowerCase();
+        const selfCode = String(managerPersonalCode || "");
+        const selfNorms = new Set();
+        const selfByCode = people.find(
+          (p) => String(p.personal_code || "") === selfCode
+        );
+        if (selfByCode && selfByCode.full_name) {
+          const n = fixText(selfByCode.full_name)
+            .trim()
+            .replace(/\s+/g, " ")
+            .toLowerCase();
+          if (n) selfNorms.add(n);
+        }
+        const selfNameNorm = fixText(managerName)
+          .trim()
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+        if (selfNameNorm) selfNorms.add(selfNameNorm);
+        const seen = new Set();
+        const items = [];
+        dms.forEach((full_name) => {
+          const nameFixed = fixText(full_name);
+          const norm = nameFixed.trim().replace(/\s+/g, " ").toLowerCase();
+          if (!norm) return;
+          if (selfNorms.has(norm)) return;
+          if (seen.has(norm)) return;
+          const p = people.find(
+            (x) =>
+              fixText(x.full_name || "")
+                .trim()
+                .replace(/\s+/g, " ")
+                .toLowerCase() === norm
+          );
+          const code = p ? String(p.personal_code || "") : "";
+          if (
+            code &&
+            managerPersonalCode &&
+            code === String(managerPersonalCode)
+          )
+            return;
+          items.push({
+            name: nameFixed,
+            personal_code: code,
+            departman: p ? String(p.departman || "") : "",
+          });
+          seen.add(norm);
+        });
+        setManagerCandidates(items);
+        setAllPeople(people);
+      } catch {}
+    };
+    loadManagerOptions();
+  }, []);
+
+  const fetchManagerContext = async (mgrName, mgrCode) => {
+    try {
+      setActiveUser(null);
+      setActiveManager({ name: mgrName, code: mgrCode || "" });
+      const results = [];
+      try {
+        const r1 = await kpiApi.fetchSubordinateEntries({
+          manager: mgrName,
+          category,
+          departman: "",
+          not_managed: false,
+          outside_department: false,
+        });
+        results.push(r1);
+      } catch {}
+      if (mgrCode) {
+        try {
+          const r2 = await kpiApi.fetchSubordinateEntries({
+            personal_code: mgrCode,
+            category,
+            manager: "",
+            departman: "",
+            not_managed: false,
+            outside_department: false,
+          });
+          results.push(r2);
+        } catch {}
+      }
+      const taskMap = new Map();
+      results.forEach((resp) => {
+        const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
+        arr.forEach((t) => {
+          const key = t.row ?? t.id;
+          if (key == null) return;
+          if (!taskMap.has(key)) taskMap.set(key, t);
+        });
+      });
+      const tasks = Array.from(taskMap.values());
+      const mapped = tasks.map((t) => ({
+        id: t.row,
+        row: t.row,
+        obj_weight: t.obj_weight || "",
+        KPIEn: t.kpi_en || "",
+        KPIFa: t.kpi_fa || "",
+        KPI_Info: t.kpi_info || "",
+        target: t.target || "",
+        KPI_weight: t.kpi_weight || "",
+        KPI_Achievement: t.kpi_achievement || "",
+        Percentage_Achievement: t.score_achievement_alt || 0,
+        Score_Achievement: t.score_achievement || 0,
+        Type: t.entry_type === "Editable" ? "" : t.entry_type || "",
+        Status:
+          t.entry_type === "Confirmed"
+            ? "Confirmed"
+            : t.entry_type === "Editable"
+            ? "Editable"
+            : t.manager_status || "",
+        Sum: t.sum_value || "",
+        personal_code: t.personal_code || "",
+        full_name: t.full_name || "",
+        direct_management: t.direct_management || "",
+        role: t.role || "",
+        departman: t.departman || "",
+        manager_name: t.manager || t.manager_name || "",
+      }));
+      setEntries(mapped);
+      setCurrentPage(1);
+    } catch {
+      toast.error("خطا در دریافت داده های مدیر");
+    }
+  };
 
   useEffect(() => {
     const pc = searchParams.get("pc");
@@ -299,6 +530,7 @@ const KpiManagerReview = () => {
       KPIEn: "",
       KPIFa: "",
       KPI_Info: "",
+      Category: "",
       target: "",
       KPI_weight: "",
       KPI_Achievement: "",
@@ -383,36 +615,110 @@ const KpiManagerReview = () => {
   };
 
   // Get unique users from entries
+  const looksMojibake = (s) => /[ØÙÛÂÃ±]/.test(String(s));
+  const normalizePersianChars = (s) =>
+    String(s)
+      .replaceAll("ي", "ی")
+      .replaceAll("ك", "ک")
+      .replace(/[\u200c\u200f]/g, "");
+  const fixText = (s) => {
+    if (s == null) return "";
+    const str = String(s);
+    if (!looksMojibake(str)) return normalizePersianChars(str);
+    try {
+      const bytes = new Uint8Array(Array.from(str, (ch) => ch.charCodeAt(0)));
+      const decoded = new TextDecoder("utf-8").decode(bytes);
+      return normalizePersianChars(decoded);
+    } catch {
+      return normalizePersianChars(str);
+    }
+  };
+  const normalizeDept = (s) =>
+    fixText(s || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
   const uniqueUsers = useMemo(() => {
     const userMap = new Map();
+    const excludeName = fixText(
+      (activeManager?.name || managerName || "").trim()
+    )
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
     entries.forEach((entry) => {
-      const key = `${entry.personal_code}_${entry.full_name}`;
+      if (departmanParam) {
+        const ed = normalizeDept(entry.departman || "");
+        const pd = normalizeDept(departmanParam);
+        if (!ed || ed !== pd) return;
+      }
+      const nameNorm = fixText(entry.full_name || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+      if (!nameNorm || nameNorm === excludeName) return;
+      const key = nameNorm;
       if (!userMap.has(key)) {
         userMap.set(key, {
-          personal_code: entry.personal_code,
-          full_name: entry.full_name,
+          personal_code: entry.personal_code || "",
+          full_name: fixText(entry.full_name || ""),
           entry_count: 0,
           has_edit_permission: false,
           has_confirmed_works: false,
         });
       }
       const user = userMap.get(key);
+      if (!user.personal_code && entry.personal_code)
+        user.personal_code = entry.personal_code;
       user.entry_count += 1;
-
-      // Check if any entry has edit permission
       if (entry.Status === "Editable") {
         user.has_edit_permission = true;
       }
-
-      // Check if any entry is confirmed
       if (entry.Type === "Confirmed" || entry.Status === "Confirmed") {
         user.has_confirmed_works = true;
-        // If user has confirmed works, they shouldn't have edit permission
         user.has_edit_permission = false;
       }
     });
     return Array.from(userMap.values());
-  }, [entries]);
+  }, [entries, activeManager, managerName, departmanParam]);
+
+  const filteredUsers = useMemo(() => {
+    const q = fixText(userSearch || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+    if (!q) return uniqueUsers;
+    return uniqueUsers.filter((u) => {
+      const name = fixText(u.full_name || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase();
+      const code = String(u.personal_code || "").trim();
+      return name.includes(q) || code.includes(userSearch.trim());
+    });
+  }, [uniqueUsers, userSearch]);
+
+  const managerCandidatesFromEntries = useMemo(() => {
+    const map = new Map();
+    entries.forEach((e) => {
+      const nameRaw = e.manager_name || e.direct_management || "";
+      const name = fixText(nameRaw).trim();
+      if (!name) return;
+      const dept = fixText(e.departman || "").trim();
+      const key = `${name.toLowerCase()}|${dept.toLowerCase()}`;
+      if (!map.has(key)) {
+        const person = allPeople.find(
+          (p) =>
+            fixText(p.full_name || "")
+              .trim()
+              .toLowerCase() === name.toLowerCase()
+        );
+        const code = person ? String(person.personal_code || "") : "";
+        map.set(key, { name, personal_code: code, departman: dept });
+      }
+    });
+    return Array.from(map.values());
+  }, [entries, allPeople]);
 
   const uniqueValues = useMemo(
     () => ({
@@ -449,6 +755,13 @@ const KpiManagerReview = () => {
           entries
             .map((e) => e.KPI_Info)
             .filter((v) => v !== "" && v !== null && v !== undefined)
+        )
+      ),
+      Category: Array.from(
+        new Set(
+          entries
+            .map((e) => normalizeCategory(e.category))
+            .filter((v) => v && String(v).trim() !== "")
         )
       ),
       target: Array.from(
@@ -511,6 +824,16 @@ const KpiManagerReview = () => {
     [entries]
   );
 
+  const kpiCounts = useMemo(() => {
+    const m = new Map();
+    entries.forEach((e) => {
+      const name = String(e.KPIFa || "").trim();
+      if (!name) return;
+      m.set(name, (m.get(name) || 0) + 1);
+    });
+    return Array.from(m.entries()).map(([name, count]) => ({ name, count }));
+  }, [entries]);
+
   const kpiParam = useMemo(
     () => searchParams.get("kpi") || null,
     [searchParams]
@@ -525,6 +848,11 @@ const KpiManagerReview = () => {
           if (key === "caseOwner") {
             const display = `${row.full_name} (${row.personal_code})`;
             return String(display) === String(filterValue);
+          }
+
+          if (key === "Category") {
+            const cat = normalizeCategory(row.category);
+            return String(cat) === String(filterValue);
           }
 
           const rawValue = row[key];
@@ -561,15 +889,29 @@ const KpiManagerReview = () => {
         const byKpi =
           !kpiParam ||
           String(row.KPIFa).trim() === decodeURIComponent(kpiParam);
-        return byUser && byKpi;
+        const byDept = departmanParam
+          ? normalizeDept(row.departman || "") === normalizeDept(departmanParam)
+          : true;
+        return byUser && byKpi && byDept;
       }),
-    [filteredEntries, activeUser, kpiParam]
+    [filteredEntries, activeUser, kpiParam, departmanParam]
   );
 
   useEffect(() => {
     const maxPages = Math.max(1, Math.ceil(displayedEntries.length / pageSize));
     setCurrentPage((p) => Math.min(p, maxPages));
   }, [displayedEntries.length]);
+
+  useEffect(() => {
+    if (!activeUser) return;
+    setHighlightTable(true);
+    const el = tableRef.current;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    const t = setTimeout(() => setHighlightTable(false), 1200);
+    return () => clearTimeout(t);
+  }, [activeUser]);
 
   const isLight = document.documentElement.classList.contains("light");
 
@@ -581,7 +923,14 @@ const KpiManagerReview = () => {
         <div className="mt-8 px-4">
           <div>
             <button
-              onClick={() => navigate("/kpipeopleworks")}
+              onClick={() => {
+                const pc = searchParams.get("pc");
+                if (pc) {
+                  navigate(`/kpi/person/${pc}`, { replace: true });
+                } else {
+                  navigate(-1);
+                }
+              }}
               className={`px-3 py-2 rounded cursor-pointer mb-2 ${
                 isLight
                   ? "bg-gray-300 hover:bg-gray-100"
@@ -640,6 +989,7 @@ const KpiManagerReview = () => {
                 >
                   <option value="All">همه</option>
                   <option value="MainTasks">Main Tasks</option>
+                  <option value="Projects">Project Works</option>
                 </select>
               </div>
             </div>
@@ -656,8 +1006,20 @@ const KpiManagerReview = () => {
               >
                 کاربران
               </h3>
+              <div className="mb-4" dir="rtl">
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="جستجوی کاربران"
+                  className={`w-full px-3 py-2 rounded-lg border ${
+                    isLight
+                      ? "bg-white text-gray-900 border-gray-300"
+                      : "bg-gray-800 text-gray-200 border-gray-600"
+                  }`}
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {uniqueUsers.map((user) => (
+                {filteredUsers.map((user) => (
                   <div
                     key={`${user.personal_code}_${user.full_name}`}
                     className={`backdrop-blur-md shadow-lg rounded-xl p-4 border ${
@@ -809,6 +1171,144 @@ const KpiManagerReview = () => {
             </div>
           )}
 
+          {/* {managerCandidates.length > 0 && (
+            <div className="mt-6 mb-6">
+              <h3
+                className={`text-lg font-semibold ${
+                  isLight ? "text-gray-900" : "text-gray-200"
+                } mb-4`}
+                dir="rtl"
+              >
+                مدیران
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {(() => {
+                  const base =
+                    managerCandidatesFromEntries.length > 0
+                      ? managerCandidatesFromEntries
+                      : managerCandidates;
+                  const filtered = departmanParam
+                    ? base.filter(
+                        (m) =>
+                          normalizeDept(m.departman || "") ===
+                          normalizeDept(departmanParam)
+                      )
+                    : base;
+                  return filtered;
+                })().map((m) => (
+                  <button
+                    key={m.name}
+                    onClick={() => fetchManagerContext(m.name, m.personal_code)}
+                    className={`text-right w-full backdrop-blur-md shadow-lg rounded-xl p-3 border ${
+                      isLight
+                        ? "bg-white/90 border-gray-200"
+                        : "bg-gray-800/60 border-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      } font-semibold text-sm`}
+                    >
+                      {String(m.name)}
+                    </div>
+                    <div
+                      className={`${
+                        isLight ? "text-gray-700" : "text-gray-300"
+                      } text-xs mt-1`}
+                    >
+                      {m.personal_code || ""}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {activeManager && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className={isLight ? "text-gray-800" : "text-gray-200"}>
+                    مدیر انتخابی: {activeManager.name}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setActiveManager(null);
+                      fetchEntries();
+                    }}
+                    className={`px-3 py-1 rounded ${
+                      isLight
+                        ? "bg-gray-200 text-gray-800"
+                        : "bg-gray-600 text-gray-200"
+                    }`}
+                  >
+                    بازگشت به مدیر فعلی
+                  </button>
+                </div>
+              )}
+            </div>
+          )} */}
+          {/* 
+          {kpiCounts.length > 0 && (
+            <div className="mt-6 mb-6">
+              <h3
+                className={`text-lg font-semibold ${
+                  isLight ? "text-gray-900" : "text-gray-200"
+                } mb-4`}
+                dir="rtl"
+              >
+                KPI ها
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {kpiCounts.map((k) => (
+                  <button
+                    key={k.name}
+                    onClick={() =>
+                      setSearchParams(k.name ? { kpi: k.name } : {}, { replace: true })
+                    }
+                    className={`text-right w-full backdrop-blur-md shadow-lg rounded-xl p-3 border ${
+                      isLight
+                        ? "bg-white/90 border-gray-200"
+                        : "bg-gray-800/60 border-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`${
+                        isLight ? "text-gray-900" : "text-gray-200"
+                      } font-semibold text-sm`}
+                    >
+                      {String(k.name)}
+                    </div>
+                    <div
+                      className={`${
+                        isLight ? "text-gray-700" : "text-gray-300"
+                      } text-xs mt-1`}
+                    >
+                      {k.count} ردیف
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {kpiParam && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => {
+                      const pc = searchParams.get("pc") || "";
+                      const dep = searchParams.get("departman") || "";
+                      const obj = {};
+                      if (pc) obj.pc = pc;
+                      if (dep) obj.departman = dep;
+                      setSearchParams(obj, { replace: true });
+                    }}
+                    className={`px-3 py-1 rounded ${
+                      isLight
+                        ? "bg-gray-200 text-gray-800"
+                        : "bg-gray-600 text-gray-200"
+                    }`}
+                  >
+                    پاک‌سازی انتخاب KPI
+                  </button>
+                </div>
+              )}
+            </div>
+          )} */}
+
           {(activeUser || kpiParam) && (
             <div
               className={`mt-6 overflow-auto pt-6 text-center ${
@@ -902,7 +1402,14 @@ const KpiManagerReview = () => {
                   </button>
                 </div>
               )}
-              <table className="w-full text-sm mb-5">
+              <table
+                ref={tableRef}
+                className={`w-full text-sm mb-5 ${
+                  highlightTable
+                    ? "animate-pulse ring-2 ring-yellow-500 rounded"
+                    : ""
+                }`}
+              >
                 <thead>
                   <tr className="text-center">
                     <th className="px-2 py-2 text-gray-400">#</th>
@@ -911,6 +1418,7 @@ const KpiManagerReview = () => {
                     <th className="px-2 py-2 text-gray-400">KPI English</th>
                     <th className="px-2 py-2 text-gray-400">KPI Farsi</th>
                     <th className="px-2 py-2 text-gray-400">KPI Info</th>
+                    <th className="px-2 py-2 text-gray-400">Category</th>
                     <th className="px-2 py-2 text-gray-400">Target</th>
                     <th className="px-2 py-2 text-gray-400">KPI Weight</th>
                     <th className="px-2 py-2 text-gray-400">KPI Achievement</th>
@@ -926,7 +1434,42 @@ const KpiManagerReview = () => {
                       isLight ? "bg-gray-300" : "bg-gray-900"
                     }`}
                   >
-                    <th className="px-2 py-1 text-gray-400"></th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Category}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Category: e.target.value,
+                            }))
+                          }
+                          className={`w-32 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          <option value="MainTasks">MainTasks</option>
+                          <option value="Projects">Projects</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Category: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
                         <select
@@ -966,6 +1509,7 @@ const KpiManagerReview = () => {
                         </button>
                       </div>
                     </th>
+
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
                         <select
@@ -1005,6 +1549,7 @@ const KpiManagerReview = () => {
                         </button>
                       </div>
                     </th>
+
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
                         <select
@@ -1044,6 +1589,7 @@ const KpiManagerReview = () => {
                         </button>
                       </div>
                     </th>
+
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
                         <select
@@ -1083,6 +1629,7 @@ const KpiManagerReview = () => {
                         </button>
                       </div>
                     </th>
+
                     <th className="px-2 py-1">
                       <div className="flex items-center justify-center gap-1">
                         <select
@@ -1114,6 +1661,42 @@ const KpiManagerReview = () => {
                             setFilters((prev) => ({
                               ...prev,
                               KPI_Info: "",
+                            }))
+                          }
+                          className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </th>
+                    <th className="px-2 py-1">
+                      <div className="flex items-center justify-center gap-1">
+                        <select
+                          value={filters.Category}
+                          onChange={(e) =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Category: e.target.value,
+                            }))
+                          }
+                          className={`w-32 px-2 py-1 border rounded ${
+                            isLight
+                              ? "bg-white text-gray-900 border-gray-300"
+                              : "bg-gray-800 text-gray-200 border-gray-600"
+                          } text-xs`}
+                        >
+                          <option value="" className="text-gray-800">
+                            All
+                          </option>
+                          <option value="MainTasks">MainTasks</option>
+                          <option value="Projects">Projects</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => ({
+                              ...prev,
+                              Category: "",
                             }))
                           }
                           className="text-gray-500 hover:text-gray-700 text-xl rounded-2xl text-center items-center cursor-pointer ml-2 hover:scale-110"
@@ -1446,6 +2029,7 @@ const KpiManagerReview = () => {
                     .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                     .map((row, index) => (
                       <tr
+                        key={`${row.id}-${row.category}-${row.personal_code}-${index}`}
                         className={`${
                           isLight
                             ? "bg-white hover:bg-gray-200"
@@ -1538,6 +2122,17 @@ const KpiManagerReview = () => {
                             }`}
                             disabled={row.Status === "Confirmed"}
                           />
+                        </td>
+                        <td className="px-2 py-2">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                              isLight
+                                ? "bg-gray-200 text-gray-800"
+                                : "bg-gray-700 text-gray-200"
+                            }`}
+                          >
+                            {normalizeCategory(row.category) || ""}
+                          </span>
                         </td>
                         <td className="px-2 py-2">
                           <input
@@ -1635,14 +2230,14 @@ const KpiManagerReview = () => {
                           <input
                             type="number"
                             step="any"
-                            value={row.Score_Achievement}
+                            value={formatPercent(row.Score_Achievement)}
                             onChange={(e) =>
                               handleChange(
                                 row.id,
                                 "Score_Achievement",
                                 e.target.value === ""
                                   ? ""
-                                  : Number(e.target.value)
+                                  : parsePercent(e.target.value)
                               )
                             }
                             placeholder="Score"

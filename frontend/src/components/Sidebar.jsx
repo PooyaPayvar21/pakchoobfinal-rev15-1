@@ -18,39 +18,134 @@ import { api, getUnreadFormsCount } from "../api";
 
 const Sidebar = () => {
   // Initialize default menu items
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userType, setUserType] = useState(null);
   const [menuItems, setMenuItems] = useState(() => {
-    const baseItems = [
-      {
-        name: "KPI Dashboard",
-        icon: BarChart2,
-        color: "#F59E0B",
-        href: "/kpidashboard",
-      },
-      {
-        name: "KPI Overview",
-        icon: BarChart2,
-        color: "#F59E0B",
-        href: "/kpipeopleworks",
-      },
-      {
-        name: "User Info",
-        icon: PersonStanding,
-        color: "#8B5CF6",
-        href: "/kpiuserinfo",
-      },
-      {
-        name: "اعلان‌ها",
-        icon: Calendar,
-        color: "#60A5FA",
-        href: "/notifications",
-      },
-    ];
+    const baseItems = [];
 
     const role = localStorage.getItem("user_role");
+    if (role === "ceo") {
+      baseItems.push(
+        {
+          name: "داشبورد مدیریتی",
+          icon: BarChart2,
+          color: "#F59E0B",
+          href: "/kpidashboard",
+        }
+        // {
+        //   name: "وضعیت کارمندان",
+        //   icon: BarChart2,
+        //   color: "#F59E0B",
+        //   href: "/kpipeopleworks",
+        // }
+      );
+    }
+    if (role === "manager") {
+      baseItems.push(
+        // {
+        //   name: "داشبورد مدیریتی",
+        //   icon: BarChart2,
+        //   color: "#F59E0B",
+        //   href: "/kpidashboard",
+        // },
+        {
+          name: "وضعیت کارمندان",
+          icon: BarChart2,
+          color: "#F59E0B",
+          href: "/kpipeopleworks",
+        }
+      );
+    }
     if (role === "management") {
       baseItems.push(
+        // {
+        //   name: "KPI Dashboard",
+        //   icon: BarChart2,
+        //   color: "#F59E0B",
+        //   href: "/kpidashboard",
+        // },
+        {
+          name: "وضعیت کارمندان",
+          icon: BarChart2,
+          color: "#F59E0B",
+          href: "/kpipeopleworks",
+        },
+        // {
+        //   name: "User Info",
+        //   icon: PersonStanding,
+        //   color: "#8B5CF6",
+        //   href: "/kpiuserinfo",
+        // },
+        {
+          name: "اعلان‌ها",
+          icon: Calendar,
+          color: "#60A5FA",
+          href: "/notifications",
+        },
+        // {
+        //   name: "Submit KPI",
+        //   icon: BookOpenCheck,
+        //   color: "#EC4899",
+        //   href: "/kpidataentry",
+        // },
+        // {
+        //   name: "Relation",
+        //   icon: BookOpenCheck,
+        //   color: "#EC4899",
+        //   href: "/kpirelation",
+        // },
+        {
+          name: "Management Review",
+          icon: BookOpenCheck,
+          color: "#EC4899",
+          href: "/kpimanagerreview",
+        }
+      );
+    }
+    if (role === "superadmin") {
+      baseItems.push(
+        {
+          name: "KPI Dashboard",
+          icon: BarChart2,
+          color: "#F59E0B",
+          href: "/kpidashboard",
+        },
+        {
+          name: "وضعیت کارمندان",
+          icon: BarChart2,
+          color: "#F59E0B",
+          href: "/kpipeopleworks",
+        },
+        // {
+        //   name: "وضعیت کارمندان",
+        //   icon: BarChart2,
+        //   color: "#F59E0B",
+        //   href: "/kpioverview",
+        // },
+        {
+          name: "اعلان‌ها",
+          icon: Calendar,
+          color: "#60A5FA",
+          href: "/notifications",
+        },
+        {
+          name: "User Info",
+          icon: PersonStanding,
+          color: "#8B5CF6",
+          href: "/kpiuserinfo",
+        },
+        {
+          name: "Management Review",
+          icon: BookOpenCheck,
+          color: "#EC4899",
+          href: "/kpimanagerreview",
+        },
+        {
+          name: "Data Entry",
+          icon: BookOpenCheck,
+          color: "#EC4899",
+          href: "/kpipersonentry",
+        },
         {
           name: "Submit KPI",
           icon: BookOpenCheck,
@@ -64,10 +159,10 @@ const Sidebar = () => {
           href: "/kpirelation",
         },
         {
-          name: "Management Review",
+          name: "Register User",
           icon: BookOpenCheck,
           color: "#EC4899",
-          href: "/kpimanagerreview",
+          href: "/register",
         }
       );
     }
@@ -90,9 +185,20 @@ const Sidebar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [unreadFormsCount, setUnreadFormsCount] = useState(0);
-  const [displayName, setDisplayName] = useState(
-    localStorage.getItem("full_name")
-  );
+  const [displayName, setDisplayName] = useState(() => {
+    try {
+      const info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      const combined = [info.first_name, info.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      return (
+        info.full_name || localStorage.getItem("full_name") || combined || ""
+      );
+    } catch {
+      return localStorage.getItem("full_name") || "";
+    }
+  });
   const [departman, setDepartman] = useState(null);
   const [companyName, setCompanyName] = useState(null);
 
@@ -107,18 +213,22 @@ const Sidebar = () => {
 
   useEffect(() => {
     const updateDisplayName = () => {
-      const kpiUserInfo = JSON.parse(
-        localStorage.getItem("kpiUserInfo") || "{}"
-      );
-      if (kpiUserInfo.full_name) {
-        setDisplayName(kpiUserInfo.full_name);
+      let info = {};
+      try {
+        info = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+      } catch {
+        info = {};
       }
-      if (kpiUserInfo.departman) {
-        setDepartman(kpiUserInfo.departman);
-      }
-      if (kpiUserInfo.company_name) {
-        setCompanyName(kpiUserInfo.company_name);
-      }
+      const nameCandidate =
+        info.full_name ||
+        localStorage.getItem("full_name") ||
+        [info.first_name, info.last_name].filter(Boolean).join(" ").trim() ||
+        info.username ||
+        localStorage.getItem("username") ||
+        "";
+      if (nameCandidate) setDisplayName(nameCandidate);
+      if (info.departman) setDepartman(info.departman);
+      if (info.company_name) setCompanyName(info.company_name);
     };
 
     updateDisplayName();
@@ -137,9 +247,42 @@ const Sidebar = () => {
         }
 
         const response = await api.get("/user/info/");
-        if (response.data && response.data.user_type) {
-          setUserType(response.data.user_type);
-          localStorage.setItem("user_type", response.data.user_type);
+        if (response.data) {
+          if (response.data.user_type) {
+            setUserType(response.data.user_type);
+            localStorage.setItem("user_type", response.data.user_type);
+          }
+          const info = response.data;
+          const combined = [info.first_name, info.last_name]
+            .filter(Boolean)
+            .join(" ")
+            .trim();
+          const nameCandidate =
+            info.full_name ||
+            localStorage.getItem("full_name") ||
+            combined ||
+            "";
+          if (nameCandidate) {
+            setDisplayName(nameCandidate);
+            localStorage.setItem("full_name", nameCandidate);
+          }
+          let existing = {};
+          try {
+            existing = JSON.parse(localStorage.getItem("kpiUserInfo") || "{}");
+          } catch {
+            existing = {};
+          }
+          const updated = { ...existing };
+          if (nameCandidate) updated.full_name = nameCandidate;
+          if (info.departman) {
+            updated.departman = info.departman;
+            setDepartman(info.departman);
+          }
+          if (info.company_name) {
+            updated.company_name = info.company_name;
+            setCompanyName(info.company_name);
+          }
+          localStorage.setItem("kpiUserInfo", JSON.stringify(updated));
         }
       } catch (error) {
         console.error("Error fetching user type:", error);
@@ -180,398 +323,394 @@ const Sidebar = () => {
     );
   }, [unreadFormsCount]);
 
-  useEffect(() => {
-    if (!departman) {
-      // Keep the default menu when departman is not available
-      // The default menu is already set in useState
-      return;
-    }
+  // useEffect(() => {
+  //   if (!departman) {
+  //     // Keep the default menu when departman is not available
+  //     // The default menu is already set in useState
+  //     return;
+  //   }
 
-    const menuConfig = {
-      "General Utility": [
-        {
-          name: "داشبورد تصفیه خانه",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/watertreatmentdashboard",
-        },
-        {
-          name: "ثبت فرم تصفیه خانه",
-          icon: BookOpenCheck,
-          color: "#EC4899",
-          href: "/watertreatmentsubmit",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      Machinary: [
-        {
-          name: "داشبورد ماشین آلات",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "فرم ها",
-          icon: ClipboardList,
-          color: "#10B981",
-          href: "/forms",
-          badge: unreadFormsCount,
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Technical Office": [
-        {
-          name: "دفتر فنی",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Technical Engineering": [
-        {
-          name: "مهندسی فنی",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Electric 1": [
-        {
-          name: "داشبورد برق 1",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "فرم ها",
-          icon: ClipboardList,
-          color: "#10B981",
-          href: "/forms",
-          badge: unreadFormsCount,
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Electric 2": [
-        {
-          name: "داشبورد برق 2",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "فرم ها",
-          icon: ClipboardList,
-          color: "#10B981",
-          href: "/forms",
-          badge: unreadFormsCount,
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Utility 1": [
-        {
-          name: "داشبورد یوتیلیتی 1",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/watertreatmentdashboard",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Utility 2": [
-        {
-          name: "داشبورد یوتیلیتی 2",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/watertreatmentdashboard",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Technical Office -General Mechanic": [
-        {
-          name: "دفتر فنی مکانیک عمومی",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Mechanic 1": [
-        {
-          name: "داشبورد مکانیک 1",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "فرم ها",
-          icon: ClipboardList,
-          color: "#10B981",
-          href: "/forms",
-          badge: unreadFormsCount,
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Mechanic 2": [
-        {
-          name: "داشبورد مکانیک 2",
-          icon: BarChart2,
-          color: "#6366f1",
-          href: "/admindashboard",
-        },
-        {
-          name: "فرم ها",
-          icon: ClipboardList,
-          color: "#10B981",
-          href: "/forms",
-          badge: unreadFormsCount,
-        },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-      "Preventive Maintenance": [
-        // {
-        //   name: "داشبورد نگهداری پیشگیرانه",
-        //   icon: BarChart2,
-        //   color: "#6366f1",
-        //   href: "/admindashboard",
-        // },
-        // {
-        //   name: "فرم های PM",
-        //   icon: ClipboardList,
-        //   color: "#10B981",
-        //   href: "/pmforms",
-        // },
-        {
-          name: "داشبورد KPI",
-          icon: BarChart2,
-          color: "#F59E0B",
-          href: "/kpidashboard",
-        },
-        {
-          name: "اعلان‌ها",
-          icon: Calendar,
-          color: "#60A5FA",
-          href: "/notifications",
-        },
-        {
-          name: "تنظیمات",
-          icon: SettingsIcon,
-          color: "#3B82F6",
-          href: "/settings",
-        },
-        { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
-      ],
-    };
+  //   const menuConfig = {
+  //     "General Utility": [
+  //       {
+  //         name: "داشبورد تصفیه خانه",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/watertreatmentdashboard",
+  //       },
+  //       {
+  //         name: "ثبت فرم تصفیه خانه",
+  //         icon: BookOpenCheck,
+  //         color: "#EC4899",
+  //         href: "/watertreatmentsubmit",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     Machinary: [
+  //       {
+  //         name: "داشبورد ماشین آلات",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "فرم ها",
+  //         icon: ClipboardList,
+  //         color: "#10B981",
+  //         href: "/forms",
+  //         badge: unreadFormsCount,
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Technical Office": [
+  //       {
+  //         name: "دفتر فنی",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Technical Engineering": [
+  //       {
+  //         name: "مهندسی فنی",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Electric 1": [
+  //       {
+  //         name: "داشبورد برق 1",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "فرم ها",
+  //         icon: ClipboardList,
+  //         color: "#10B981",
+  //         href: "/forms",
+  //         badge: unreadFormsCount,
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Electric 2": [
+  //       {
+  //         name: "داشبورد برق 2",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "فرم ها",
+  //         icon: ClipboardList,
+  //         color: "#10B981",
+  //         href: "/forms",
+  //         badge: unreadFormsCount,
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Utility 1": [
+  //       {
+  //         name: "داشبورد یوتیلیتی 1",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/watertreatmentdashboard",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Utility 2": [
+  //       {
+  //         name: "داشبورد یوتیلیتی 2",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/watertreatmentdashboard",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Technical Office -General Mechanic": [
+  //       {
+  //         name: "دفتر فنی مکانیک عمومی",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Mechanic 1": [
+  //       {
+  //         name: "داشبورد مکانیک 1",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "فرم ها",
+  //         icon: ClipboardList,
+  //         color: "#10B981",
+  //         href: "/forms",
+  //         badge: unreadFormsCount,
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Mechanic 2": [
+  //       {
+  //         name: "داشبورد مکانیک 2",
+  //         icon: BarChart2,
+  //         color: "#6366f1",
+  //         href: "/admindashboard",
+  //       },
+  //       {
+  //         name: "فرم ها",
+  //         icon: ClipboardList,
+  //         color: "#10B981",
+  //         href: "/forms",
+  //         badge: unreadFormsCount,
+  //       },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //     "Preventive Maintenance": [
+  //       // {
+  //       //   name: "داشبورد نگهداری پیشگیرانه",
+  //       //   icon: BarChart2,
+  //       //   color: "#6366f1",
+  //       //   href: "/admindashboard",
+  //       // },
+  //       // {
+  //       //   name: "فرم های PM",
+  //       //   icon: ClipboardList,
+  //       //   color: "#10B981",
+  //       //   href: "/pmforms",
+  //       // },
+  //       {
+  //         name: "داشبورد KPI",
+  //         icon: BarChart2,
+  //         color: "#F59E0B",
+  //         href: "/kpidashboard",
+  //       },
+  //       {
+  //         name: "اعلان‌ها",
+  //         icon: Calendar,
+  //         color: "#60A5FA",
+  //         href: "/notifications",
+  //       },
+  //       {
+  //         name: "تنظیمات",
+  //         icon: SettingsIcon,
+  //         color: "#3B82F6",
+  //         href: "/settings",
+  //       },
+  //       { name: "خروج", icon: Power, color: "#6ee7b7", href: "/logout" },
+  //     ],
+  //   };
 
-    setMenuItems((prevItems) => {
-      const newMenu = menuConfig[departman] || prevItems;
-      return newMenu;
-    });
-  }, [departman]);
+  //   setMenuItems((prevItems) => {
+  //     const newMenu = menuConfig[departman] || prevItems;
+  //     return newMenu;
+  //   });
+  // }, [departman]);
 
   // Debug output for troubleshooting
-  if (process.env.NODE_ENV !== "production") {
-    console.log("Sidebar departman:", departman);
-    console.log("Sidebar menuItems:", menuItems);
-  }
 
   if (isLoading && menuItems.length === 0) {
     return (
@@ -601,7 +740,7 @@ const Sidebar = () => {
             : "bg-gray-800 bg-opacity-95 backdrop-blur-md shadow-lg md:shadow-none"
         }`}
         animate={{
-          width: isMobile ? "100%" : isSidebarOpen ? "210px" : "64px",
+          width: isMobile ? "100%" : isSidebarOpen ? "215px" : "68px",
           height: isMobile ? (isSidebarOpen ? "auto" : "auto") : "100%",
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -614,7 +753,7 @@ const Sidebar = () => {
           <div className="flex justify-between items-center mb-2 md:mb-4">
             <motion.button
               whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.3 }}
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className={`p-2 rounded-full transition-colors max-w-fit hidden md:block ${
                 isLight ? "hover:bg-gray-200" : "hover:bg-gray-700"

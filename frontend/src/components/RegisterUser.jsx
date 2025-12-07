@@ -1,32 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/register.css";
-import { register, updateUserAdditionalRoles } from "../api";
+import { register } from "../api";
+import kpiApi from "../services/kpiApi";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [userType, setUserType] = useState("pm");
-  const [subUserType, setSubUserType] = useState("management");
-  const [sections, setSections] = useState([]);
-  const [additionalRoles, setAdditionalRoles] = useState([]);
+  const [userType, setUserType] = useState("management");
+  const [companyName, setCompanyName] = useState("");
+  const [season, setSeason] = useState("");
+  const [personalCode, setPersonalCode] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [kpiRole, setKpiRole] = useState("");
+  const [directManagement, setDirectManagement] = useState("");
+  const [departman, setDepartman] = useState("");
   const [message, setMessage] = useState("");
-  const [isUpdateMode, setIsUpdateMode] = useState(false);
 
-  // Define user types and their corresponding sub-user types
+  const [options, setOptions] = useState({
+    people: [],
+    roles: [],
+    direct_managements: [],
+    departmans: [],
+    seasons: [],
+  });
+
   const userTypeOptions = [
     { value: "superadmin", label: "Super Admin" },
     { value: "ceo", label: "CEO" },
     { value: "management", label: "Management" },
     { value: "manager", label: "Manager" },
-    // { value: "pm", label: "PM" },
-    // { value: "production", label: "Production" },
-    // { value: "mechanic", label: "Mechanic" },
-    // { value: "generalmechanic", label: "General Mechanic" },
-    // { value: "electric", label: "Electric" },
-    // { value: "utility", label: "Utility" },
-    // { value: "metalworking", label: "Metal Working" },
-    // { value: "tarashkari", label: "Tarash Kari" },
-    // { value: "paint", label: "Paint" },
   ];
 
   // Define section options
@@ -53,32 +55,31 @@ const Register = () => {
     { value: "Paper Impregnation 3", label: "Paper Impregnation 3" },
   ];
 
-  // Get available sub-user types based on selected user type
-  const getSubUserTypes = (selectedUserType) => {
-    switch (selectedUserType) {
-      case "superadmin":
-        return [{ value: "superadmin", label: "Super Admin" }];
-      case "ceo":
-        return [{ value: "ceo", label: "CEO" }];
-      case "management":
-        return [{ value: "management", label: "Management" }];
-      case "manager":
-        return [{ value: "manager", label: "Manager" }];
-      case "production":
-        return [
-          { value: "management", label: "Management" },
-          { value: "operator", label: "Operator" },
-        ];
-      case "pm":
-        return [
-          { value: "management", label: "Management" },
-          { value: "technician", label: "Technician" },
-        ];
-      default:
-        return [{ value: "technician", label: "Technician" }];
-    }
-  };
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const data = await kpiApi.fetchKPIEntryOptions();
+        setOptions({
+          people: data.people || [],
+          roles: data.roles || [],
+          direct_managements: data.direct_managements || [],
+          departmans: data.departmans || [],
+          seasons: data.seasons || [],
+        });
+      } catch (e) {
+        setOptions({
+          people: [],
+          roles: [],
+          direct_managements: [],
+          departmans: [],
+          seasons: [],
+        });
+      }
+    };
+    loadOptions();
+  }, []);
 
+  const isLight = document.documentElement.classList.contains("light");
   // Get Additional Rules
   const getAdditionalRulesTypes = (selectedUserType) => {
     if (selectedUserType === "generalmechanic") {
@@ -94,31 +95,15 @@ const Register = () => {
   const handleUserTypeChange = (e) => {
     const newUserType = e.target.value;
     setUserType(newUserType);
-    // Set default sub-user type based on the selected user type
-    setSubUserType(getSubUserTypes(newUserType)[0].value);
-    // Reset additional roles when user type changes
-    setAdditionalRoles([]);
   };
 
-  const handleSectionChange = (e) => {
-    const selectedOptions = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
+  const handlePersonChange = (e) => {
+    const code = e.target.value;
+    setPersonalCode(code);
+    const person = options.people.find(
+      (p) => String(p.personal_code) === String(code)
     );
-    // Ensure at least one section is selected
-    if (selectedOptions.length === 0) {
-      setSections(["General"]);
-    } else {
-      setSections(selectedOptions);
-    }
-  };
-
-  const handleAdditionalRolesChange = (e) => {
-    const selectedOptions = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    setAdditionalRoles(selectedOptions);
+    setFullName(person ? person.full_name : "");
   };
 
   const handleRegister = async (e) => {
@@ -126,51 +111,41 @@ const Register = () => {
     setMessage("");
 
     try {
-      // Ensure sections is always an array (can be empty)
-      const sectionsToSend = Array.isArray(sections) ? sections : [];
-
-      if (isUpdateMode) {
-        // Update additional roles for existing user
-        const response = await updateUserAdditionalRoles(
-          username,
-          additionalRoles
-        );
-        if (response.data.status === "success") {
-          setMessage("Additional roles updated successfully!");
-          // Clear form after successful update
-          setUsername("");
-          setAdditionalRoles([]);
-          setIsUpdateMode(false);
-        }
+      const payloadUsername =
+        userType === "ceo" ? username : personalCode || username;
+      const payload = {
+        username: payloadUsername,
+        password,
+        user_type: userType,
+        sub_user_type: userType,
+        company_name: companyName,
+        season,
+        personal_code: personalCode,
+        personel_code: personalCode,
+        full_name: fullName,
+        role: kpiRole,
+        direct_management: directManagement,
+        departman,
+      };
+      const response = await register(payload);
+      if (response.data?.status === "success" || response.status === 201) {
+        setMessage("User registered successfully!");
+        setUsername("");
+        setPassword("");
+        setUserType("management");
+        setCompanyName("");
+        setSeason("");
+        setPersonalCode("");
+        setFullName("");
+        setKpiRole("");
+        setDirectManagement("");
+        setDepartman("");
       } else {
-        // Register new user
-        const response = await register({
-          username,
-          password,
-          user_type: userType,
-          sub_user_type: subUserType,
-          sections: sectionsToSend,
-          additional_roles: additionalRoles,
-        });
-
-        if (response.data.status === "success") {
-          setMessage("User registered successfully!");
-          // Clear form after successful registration
-          setUsername("");
-          setPassword("");
-          setUserType("pm");
-          setSubUserType("management");
-          setSections(["General"]);
-          setAdditionalRoles([]);
-        }
+        setMessage("Operation failed");
       }
     } catch (error) {
-      console.error("Operation error:", error);
       if (error.response?.data?.message === "Username already exists") {
-        setMessage(
-          "Username exists. Switching to update mode. Please enter additional roles."
-        );
-        setIsUpdateMode(true);
+        setMessage("Username already exists");
       } else {
         setMessage(error.response?.data?.message || "Operation failed");
       }
@@ -178,198 +153,370 @@ const Register = () => {
   };
 
   return (
-    <div className="login-container">
-      <div className="w-[550px] bg-transparent border border-gray-600 shadow-2xl backdrop-blur-xs text-center">
-        <h2 className="text-2xl text-center font-mono">
-          {isUpdateMode ? "Update User Additional Roles" : "Register New User"}
-        </h2>
-        {message && (
-          <p
-            style={{
-              color: message.includes("successfully") ? "yellow" : "red",
-            }}
-          >
-            {message}
-          </p>
-        )}
-        <form onSubmit={handleRegister} className="h-180">
-          <div className="input-box">
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-            />
+    <div className="min-h-screen flex items-center mx-auto justify-center px-4">
+      <div
+        className={`w-full max-w-3xl backdrop-blur-md rounded-2xl shadow-xl border ${
+          isLight
+            ? "bg-white/90 border-gray-200"
+            : "bg-gray-800/60 border-gray-700"
+        }`}
+      >
+        <div className="p-6">
+          <div className="mb-6 text-center">
+            <h2
+              className={`${
+                isLight ? "text-gray-900" : "text-gray-100"
+              } text-2xl font-bold`}
+            >
+              Register New User
+            </h2>
+            {message && (
+              <div
+                className={`mt-3 text-sm font-medium ${
+                  message.includes("successfully")
+                    ? "text-green-500"
+                    : "text-red-500"
+                }`}
+              >
+                {message}
+              </div>
+            )}
           </div>
-          {!isUpdateMode && (
-            <>
-              <div className="input-box">
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                />
+
+          <form onSubmit={handleRegister} className="space-y-6">
+            <div>
+              <div
+                className={`${
+                  isLight ? "text-gray-700" : "text-gray-300"
+                } text-sm mb-2`}
+              >
+                Account Information
               </div>
-              <div className="input-box">
-                <select
-                  value={userType}
-                  onChange={handleUserTypeChange}
-                  required
-                  className="w-full p-5 text-center  h-full bg-transparent border-2 border-white/20 rounded-full px-5 text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                >
-                  {userTypeOptions.map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      className="bg-gray-800"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="input-box">
-                <select
-                  value={subUserType}
-                  onChange={(e) => setSubUserType(e.target.value)}
-                  required
-                  className="w-full p-5 text-center h-full bg-transparent border-2 border-white/20 rounded-full px-5 text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                >
-                  {getSubUserTypes(userType).map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      className="bg-gray-800"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="input-box">
-                <label className="block text-sm font-medium text-gray-300">
-                  Sections (Select Multiple)
-                </label>
-                <div className="relative">
-                  <select
-                    multiple
-                    value={sections}
-                    onChange={handleSectionChange}
-                    className="w-full p-2 border rounded-md"
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label
+                    className={`${
+                      isLight ? "text-gray-600" : "text-gray-400"
+                    } text-xs block mb-1`}
                   >
-                    {sectionOptions.map((option) => (
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    autoComplete="username"
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isLight
+                        ? "bg-white text-gray-900 border-gray-300"
+                        : "bg-gray-900 text-gray-100 border-gray-700"
+                    } focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+                <div>
+                  <label
+                    className={`${
+                      isLight ? "text-gray-600" : "text-gray-400"
+                    } text-xs block mb-1`}
+                  >
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isLight
+                        ? "bg-white text-gray-900 border-gray-300"
+                        : "bg-gray-900 text-gray-100 border-gray-700"
+                    } focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+                <div>
+                  <label
+                    className={`${
+                      isLight ? "text-gray-600" : "text-gray-400"
+                    } text-xs block mb-1`}
+                  >
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    autoComplete="name"
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isLight
+                        ? "bg-white text-gray-900 border-gray-300"
+                        : "bg-gray-900 text-gray-100 border-gray-700"
+                    } focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div
+                className={`${
+                  isLight ? "text-gray-700" : "text-gray-300"
+                } text-sm mb-2`}
+              >
+                User Type
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1">
+                  <label
+                    className={`${
+                      isLight ? "text-gray-600" : "text-gray-400"
+                    } text-xs block mb-1`}
+                  >
+                    Type
+                  </label>
+                  <select
+                    value={userType}
+                    onChange={handleUserTypeChange}
+                    required
+                    className={`w-full px-4 py-3 rounded-lg border ${
+                      isLight
+                        ? "bg-white text-gray-900 border-gray-300"
+                        : "bg-gray-900 text-gray-100 border-gray-700"
+                    } focus:ring-2 focus:ring-blue-500`}
+                  >
+                    {userTypeOptions.map((option) => (
                       <option
                         key={option.value}
                         value={option.value}
-                        className="py-2 px-3 hover:bg-blue-600/50 cursor-pointer"
+                        className={isLight ? "bg-white" : "bg-gray-900"}
                       >
                         {option.label}
                       </option>
                     ))}
                   </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
                 </div>
-                <div className="mt-2 flex items-center text-sm text-gray-400">
-                  <svg
-                    className="h-4 w-4 mr-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 0 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Hold Ctrl (Windows) or Command (Mac) to select multiple
-                  sections
-                </div>
-              </div>
-            </>
-          )}
-          {getAdditionalRulesTypes(userType).length > 0 && (
-            <div className="input-box">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Additional Roles (Select Multiple)
-              </label>
-              <div className="relative">
-                <select
-                  multiple
-                  value={additionalRoles}
-                  onChange={handleAdditionalRolesChange}
-                  className="w-full min-h-[120px] bg-gray-800/50 border-2 border-white/20 rounded-lg px-4 py-2 text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800"
-                  size={3}
-                >
-                  {getAdditionalRulesTypes(userType).map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      className="py-2 px-3 hover:bg-blue-600/50 cursor-pointer"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center text-sm text-gray-400">
-                <svg
-                  className="h-4 w-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 0 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Hold Ctrl (Windows) or Command (Mac) to select multiple roles
               </div>
             </div>
-          )}
 
-          <button type="submit">
-            {isUpdateMode ? "Update Additional Roles" : "Register"}
-          </button>
-        </form>
+            {userType !== "ceo" && userType !== "superadmin" && (
+              <div>
+                <div
+                  className={`${
+                    isLight ? "text-gray-700" : "text-gray-300"
+                  } text-sm mb-2`}
+                >
+                  Additional Information
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Company Name
+                    </label>
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Season
+                    </label>
+                    <select
+                      value={season}
+                      onChange={(e) => setSeason(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option
+                        value=""
+                        className={isLight ? "bg-white" : "bg-gray-900"}
+                      >
+                        Select Season
+                      </option>
+                      {options.seasons.map((s) => (
+                        <option
+                          key={s}
+                          value={s}
+                          className={isLight ? "bg-white" : "bg-gray-900"}
+                        >
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Person
+                    </label>
+                    <select
+                      value={personalCode}
+                      onChange={handlePersonChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option
+                        value=""
+                        className={isLight ? "bg-white" : "bg-gray-900"}
+                      >
+                        Select Person
+                      </option>
+                      {options.people.map((p) => (
+                        <option
+                          key={p.personal_code}
+                          value={p.personal_code}
+                          className={isLight ? "bg-white" : "bg-gray-900"}
+                        >
+                          {p.full_name} ({p.personal_code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Role
+                    </label>
+                    <select
+                      value={kpiRole}
+                      onChange={(e) => setKpiRole(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option
+                        value=""
+                        className={isLight ? "bg-white" : "bg-gray-900"}
+                      >
+                        Select Role
+                      </option>
+                      {options.roles.map((r) => (
+                        <option
+                          key={r}
+                          value={r}
+                          className={isLight ? "bg-white" : "bg-gray-900"}
+                        >
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Direct Management
+                    </label>
+                    <select
+                      value={directManagement}
+                      onChange={(e) => setDirectManagement(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option
+                        value=""
+                        className={isLight ? "bg-white" : "bg-gray-900"}
+                      >
+                        Direct Management
+                      </option>
+                      {options.direct_managements.map((dm) => (
+                        <option
+                          key={dm}
+                          value={dm}
+                          className={isLight ? "bg-white" : "bg-gray-900"}
+                        >
+                          {dm}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      className={`${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      } text-xs block mb-1`}
+                    >
+                      Departman
+                    </label>
+                    <select
+                      value={departman}
+                      onChange={(e) => setDepartman(e.target.value)}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isLight
+                          ? "bg-white text-gray-900 border-gray-300"
+                          : "bg-gray-900 text-gray-100 border-gray-700"
+                      } focus:ring-2 focus:ring-blue-500`}
+                    >
+                      <option
+                        value=""
+                        className={isLight ? "bg-white" : "bg-gray-900"}
+                      >
+                        Departman
+                      </option>
+                      {options.departmans.map((d) => (
+                        <option
+                          key={d}
+                          value={d}
+                          className={isLight ? "bg-white" : "bg-gray-900"}
+                        >
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                  isLight
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

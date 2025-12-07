@@ -75,7 +75,8 @@ from .models import (
     WaterTreatment,
     SubmitPM,
     KPIWork,
-    KPIWorkResponse
+    KPIWorkResponse,
+    KPIPersonel,
 )
 from .models import KPIEntry
 from .models import Notification
@@ -279,8 +280,6 @@ def get_kpi_people_by_role(request):
             'کارشناس': 'technician',
             # allow English passthrough if frontend sends internal values
             'management': 'management',
-            'technician': 'technician',
-            'operator': 'operator',
         }
 
         internal_role = role_map.get(role, None)
@@ -304,6 +303,25 @@ def get_kpi_people_by_role(request):
             {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_kpi_personel(request):
+    """Get KPI personnel filtered by departman"""
+    departman = (request.query_params.get('departman') or '').strip()
+    try:
+        if not departman:
+            return Response(
+                {'error': 'departman parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        qs = KPIPersonel.objects.filter(departman__iexact=departman).order_by('full_name')
+        people = list(qs.values('id', 'full_name', 'personal_code', 'job_title', 'departman'))
+        return Response({'people': people, 'count': len(people)})
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -518,6 +536,7 @@ def submit_kpientry(request):
         for task in tasks:
             payload = {
                 "company_name": data.get("company_name", ""),
+                "season": data.get("season", ""),
                 "personal_code": personal_code,
                 "full_name": data.get("full_name", ""),
                 "role": data.get("role", ""),
@@ -828,6 +847,13 @@ def kpientry_options(request):
             .distinct()
             .order_by("departman")
         )
+        seasons = list(
+            KPIEntry.objects.exclude(season="")
+            .exclude(season__isnull=True)
+            .values_list("season", flat=True)
+            .distinct()
+            .order_by("season")
+        )
         return Response(
             {
                 "full_names": full_names,
@@ -835,6 +861,7 @@ def kpientry_options(request):
                 "roles": roles,
                 "people": people,
                 "departmans": departmans,
+                "seasons": seasons,
             }
         )
     except Exception as e:
@@ -888,9 +915,77 @@ def kpientry_subordinates(request):
         departman = request.query_params.get('departman', '').strip()
         not_managed = request.query_params.get('not_managed') in ['true', '1', 'True']
         outside_department = request.query_params.get('outside_department') in ['true', '1', 'True']
+        user_type = getattr(request.user, 'user_type', '') if request.user and request.user.is_authenticated else ''
+
+        # CEO can view all KPIEntry rows regardless of filters
+        if user_type == 'ceo':
+            qs = KPIEntry.objects.all()
+            if personal_code:
+                qs = qs.filter(personal_code=personal_code)
+            if category and category not in ['', 'All']:
+                qs = qs.filter(category=category)
+            qs = qs.order_by('-created_at')
+            count = qs.count()
+            serializer = KPIEntrySerializer(qs, many=True)
+            return Response({
+                'status': 'success' if count > 0 else 'no_results',
+                'count': count,
+                'tasks': serializer.data,
+                'debug': {'mode': 'ceo_all'}
+            })
+
+        # If a personal_code is provided, allow querying without manager
+        if personal_code and not manager:
+            qs = KPIEntry.objects.filter(personal_code=personal_code)
+            if category and category not in ['', 'All']:
+                qs = qs.filter(category=category)
+            if departman and departman.strip():
+                qs = qs.filter(departman__iexact=departman)
+            qs = qs.order_by('-created_at')
+            count = qs.count()
+            serializer = KPIEntrySerializer(qs, many=True)
+            return Response({
+                'status': 'success' if count > 0 else 'no_results',
+                'count': count,
+                'tasks': serializer.data,
+                'debug': {'mode': 'personal_code_only'}
+            })
         
+        alias_map = {
+            'H.hoseinzade': 'حامد حاجی حسین زاده',
+        }
+        uname_cur = getattr(request.user, 'username', '') if request.user and request.user.is_authenticated else ''
+        if manager in alias_map:
+            manager = alias_map.get(manager, manager)
         if not manager:
-            return Response({"status": "error", "message": "manager parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+            if request.user and request.user.is_authenticated:
+                resolved_manager = getattr(request.user, 'full_name', '') or ''
+                try:
+                    # Some auth backends provide get_full_name
+                    if not resolved_manager and hasattr(request.user, 'get_full_name'):
+                        resolved_manager = request.user.get_full_name() or ''
+                except Exception:
+                    pass
+                if not resolved_manager and uname_cur in alias_map:
+                    resolved_manager = alias_map[uname_cur]
+                if not resolved_manager:
+                    uname = getattr(request.user, 'username', '')
+                    # Try to find a direct_management value that references this username
+                    dm_hit = KPIEntry.objects.filter(
+                        direct_management__icontains=uname
+                    ).exclude(direct_management__isnull=True).exclude(direct_management="")\
+                     .values_list('direct_management', flat=True).first()
+                    if dm_hit:
+                        manager = dm_hit
+                else:
+                    manager = resolved_manager
+            if not manager:
+                return Response({
+                    "status": "no_results",
+                    "count": 0,
+                    "tasks": [],
+                    "debug": {"message": "no manager resolved from auth or query"}
+                })
         
         # Debug logging
         logger.info(f"[KPI Subordinates] Query params: manager='{manager}', departman='{departman}', category='{category}', not_managed={not_managed}, outside_department={outside_department}")
@@ -2703,15 +2798,26 @@ def register_view(request):
         username = request.data.get("username")
         password = request.data.get("password")
         user_type = request.data.get("user_type")
-        role = request.data.get("sub_user_type")  # Get role from sub_user_type
-        sections = request.data.get("sections", [])  # Get sections from request
+        role_app = request.data.get("sub_user_type")
+        sections = request.data.get("sections", [])
+
+        company_name = request.data.get("company_name", "")
+        season = request.data.get("season", "")
+        personal_code = request.data.get("personal_code") or request.data.get("personel_code") or ""
+        full_name = request.data.get("full_name", "")
+        kpi_role = request.data.get("role", "")
+        direct_management = request.data.get("direct_management", "")
+        departman = request.data.get("departman", "")
 
         # Validate required fields
-        if not username or not password or not user_type:
+        if not password or not user_type:
             return Response(
                 {"status": "error", "message": "All fields are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if personal_code and not username:
+            username = personal_code
 
         # Validate user type
         if user_type not in [
@@ -2734,10 +2840,10 @@ def register_view(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate role
-        if role not in ["superadmin", "ceo", "management", "manager", "technician", "operator"]:
+        # Validate application role if provided
+        if role_app and role_app not in ["superadmin", "ceo", "management", "manager", "technician", "operator"]:
             return Response(
-                {"status": "error", "message": f"Invalid role: {role}. Must be one of: superadmin, ceo, management, manager, technician, operator"},
+                {"status": "error", "message": f"Invalid role: {role_app}. Must be one of: superadmin, ceo, management, manager, technician, operator"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2757,9 +2863,18 @@ def register_view(request):
             username=username,
             password=password,
             user_type=user_type,
-            role=role,
+            role=role_app or "management",
             sections=sections,
         )
+
+        user.company_name = company_name
+        user.season = season
+        user.personal_code = personal_code
+        user.full_name = full_name
+        user.kpi_role = kpi_role
+        user.direct_management = direct_management
+        user.departman = departman
+        user.save()
 
         # Generate token for the new user
         token, _ = Token.objects.get_or_create(user=user)
@@ -2770,8 +2885,15 @@ def register_view(request):
                 "message": "User registered successfully",
                 "token": token.key,
                 "user_type": user_type,
-                "role": role,
+                "role": role_app or "management",
                 "sections": sections,
+                "company_name": company_name,
+                "season": season,
+                "personal_code": personal_code,
+                "full_name": full_name,
+                "kpi_role": kpi_role,
+                "direct_management": direct_management,
+                "departman": departman,
             },
             status=status.HTTP_201_CREATED,
         )

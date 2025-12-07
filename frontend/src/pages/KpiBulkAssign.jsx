@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import Header from "../components/Common/Header";
 import { ToastContainer, toast } from "react-toastify";
 import { kpiApi } from "../services/kpiApi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 function KpiBulkAssign() {
+  const [searchParams] = useSearchParams();
   const [entries, setEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [searchKpi, setSearchKpi] = useState("");
@@ -30,7 +31,7 @@ function KpiBulkAssign() {
     target: "",
     Type: "+",
     KPI_weight: "",
-    category: "MainTasks",
+    category: "All",
     obj_weight: "",
     KPI_Info: "",
     company_name: "",
@@ -49,11 +50,17 @@ function KpiBulkAssign() {
     }
   }, []);
 
-  const managerName = managerInfo.full_name || "";
+  const managerName =
+    managerInfo.full_name || localStorage.getItem("username") || "";
   const managerDepartman = managerInfo.departman || "";
   const managerPersonalCode = managerInfo.personal_code || "";
   const managerRole = (managerInfo.role || "").toLowerCase();
   const managerDirectManagement = managerInfo.direct_management || "";
+
+  const departmanParam = useMemo(() => {
+    const v = searchParams.get("departman");
+    return v ? decodeURIComponent(v) : "";
+  }, [searchParams]);
 
   // Check if current user is a management role
   const isManagement = ["management", "manager", "ceo", "superadmin"].includes(
@@ -182,7 +189,25 @@ function KpiBulkAssign() {
             "[BulkAssign] mapped rows set to entries:",
             mapped.length
           );
-          setEntries(mapped);
+          const byKey = new Map();
+          mapped.forEach((r) => {
+            const key = [
+              fixText(r.KPIFa),
+              String(r.KPIEn || "")
+                .trim()
+                .toLowerCase(),
+              fixText(r.KPI_Info),
+              String(formatPercentDisplay(r.target || "")).trim(),
+              String(formatPercentDisplay(r.KPI_weight || "")).trim(),
+              String(formatPercentDisplay(r.obj_weight || "")).trim(),
+              String(r.category || "")
+                .trim()
+                .toLowerCase(),
+              String(r.Type || "+").trim(),
+            ].join("|");
+            if (!byKey.has(key)) byKey.set(key, r);
+          });
+          setEntries(Array.from(byKey.values()));
           if (mapped.length === 0) {
             toast.info("No KPI entries found for your direct reports");
           }
@@ -292,7 +317,25 @@ function KpiBulkAssign() {
             "[BulkAssign] non-management normalized rows:",
             normalized.length
           );
-          setEntries(normalized);
+          const byKey2 = new Map();
+          normalized.forEach((r) => {
+            const key = [
+              fixText(r.KPIFa),
+              String(r.KPIEn || "")
+                .trim()
+                .toLowerCase(),
+              fixText(r.KPI_Info),
+              String(formatPercentDisplay(r.target || "")).trim(),
+              String(formatPercentDisplay(r.KPI_weight || "")).trim(),
+              String(formatPercentDisplay(r.obj_weight || "")).trim(),
+              String(r.category || "")
+                .trim()
+                .toLowerCase(),
+              String(r.Type || "+").trim(),
+            ].join("|");
+            if (!byKey2.has(key)) byKey2.set(key, r);
+          });
+          setEntries(Array.from(byKey2.values()));
         }
       } catch (error) {
         console.error("Error fetching KPI entries:", error);
@@ -322,6 +365,8 @@ function KpiBulkAssign() {
       return normalizePersianChars(str);
     }
   };
+  const normalizeDept = (s) =>
+    fixText(s || "").trim().replace(/\s+/g, " ").toLowerCase();
 
   const formatPercentDisplay = (value) => {
     if (value === "" || value === null || value === undefined) return "";
@@ -402,8 +447,13 @@ function KpiBulkAssign() {
       u.entry_count += 1;
       m.set(key, u);
     });
-    return Array.from(m.values());
-  }, [entries, managerPersonalCode, managerName]);
+    const arr = Array.from(m.values());
+    const pd = normalizeDept(departmanParam || "");
+    if (pd) {
+      return arr.filter((u) => normalizeDept(u.departman || "") === pd);
+    }
+    return arr;
+  }, [entries, managerPersonalCode, managerName, departmanParam]);
 
   const filteredEntries = useMemo(() => {
     const q = normalizePersianChars(String(searchKpi)).toLowerCase();
@@ -441,6 +491,20 @@ function KpiBulkAssign() {
       return true;
     });
   }, [entries, searchKpi, filters]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredEntries.length / pageSize)),
+    [filteredEntries.length]
+  );
+  const paginatedEntries = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredEntries.slice(start, start + pageSize);
+  }, [filteredEntries, currentPage]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredEntries]);
 
   const isLight = document.documentElement.classList.contains("light");
 
@@ -985,7 +1049,7 @@ function KpiBulkAssign() {
                         isLight ? "divide-gray-300" : "divide-gray-700"
                       } text-center`}
                     >
-                      {filteredEntries.map((row, index) => {
+                      {paginatedEntries.map((row, index) => {
                         const active = selectedRow?.row === row.row;
                         return (
                           <tr
@@ -1006,7 +1070,7 @@ function KpiBulkAssign() {
                                 isLight ? "text-gray-700" : "text-gray-300"
                               }`}
                             >
-                              {index + 1}
+                              {(currentPage - 1) * pageSize + index + 1}
                             </td>
                             <td
                               className={`px-2 py-2 ${
@@ -1069,6 +1133,52 @@ function KpiBulkAssign() {
                       })}
                     </tbody>
                   </table>
+                  <div
+                    className="flex items-center justify-between mt-3"
+                    dir="rtl"
+                  >
+                    <div
+                      className={isLight ? "text-gray-700" : "text-gray-300"}
+                    >
+                      صفحه {currentPage} از {totalPages}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className={`px-3 py-2 rounded ${
+                          isLight
+                            ? "bg-gray-200 hover:bg-gray-300"
+                            : "bg-gray-700 hover:bg-gray-600"
+                        } ${
+                          currentPage === 1
+                            ? "opacity-60 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        قبلی
+                      </button>
+                      <button
+                        onClick={() =>
+                          setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className={`px-3 py-2 rounded ${
+                          isLight
+                            ? "bg-gray-200 hover:bg-gray-300"
+                            : "bg-gray-700 hover:bg-gray-600"
+                        } ${
+                          currentPage === totalPages
+                            ? "opacity-60 cursor-not-allowed"
+                            : ""
+                        }`}
+                      >
+                        بعدی
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

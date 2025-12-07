@@ -14,6 +14,7 @@ from .models import (
     PmTechnician,
     PmPersonel,
     KPIEntry,
+    GroupQ2Entry,
 )
 
 
@@ -618,3 +619,23 @@ class AdminKPIEntry(admin.ModelAdmin):
 
 
 admin.site.register(KPIEntry, AdminKPIEntry)
+
+
+class AdminGroupQ2Entry(admin.ModelAdmin):
+    list_display = (
+        "row_index",
+        "company_name",
+        "season",
+        "personal_code",
+        "full_name",
+        "departman",
+        "kpi_fa",
+        "target",
+        "kpi_weight",
+        "kpi_achievement",
+        "score_achievement",
+    )
+    search_fields = ("company_name", "personal_code", "full_name", "kpi_en", "kpi_fa")
+
+
+admin.site.register(GroupQ2Entry, AdminGroupQ2Entry)

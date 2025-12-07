@@ -4,6 +4,15 @@ import Header from "../components/Common/Header";
 import { ToastContainer, toast } from "react-toastify";
 import { kpiApi } from "../services/kpiApi";
 
+function normalizePercent(v) {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = Number(v);
+  if (Number.isNaN(n)) return 0;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return Math.round(n);
+}
+
 function KpiPersonReport() {
   const { personal_code } = useParams();
   const navigate = useNavigate();
@@ -44,56 +53,53 @@ function KpiPersonReport() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const attempts = [
-          {
-            manager: managerName,
-            category: "All",
-            departman: managerDepartman,
+        // Prefer personal_code-only query to avoid manager/departman 400s
+        let baseResp = null;
+        try {
+          baseResp = await kpiApi.fetchSubordinateEntries({
             personal_code,
+            category: "All",
+            manager: managerName || undefined,
+            departman: managerDepartman || undefined,
             not_managed: false,
             outside_department: false,
-          },
-          {
-            manager: managerName,
-            category: "All",
-            departman: managerDepartman,
-            personal_code,
-            not_managed: true,
-            outside_department: false,
-          },
-          {
-            manager: "",
-            category: "All",
-            departman: managerDepartman,
-            personal_code,
-            not_managed: false,
-            outside_department: true,
-          },
-          {
-            manager: managerName,
-            category: "All",
-            departman: "",
-            personal_code,
-            not_managed: false,
-            outside_department: true,
-          },
-        ];
-        const results = await Promise.all(
-          attempts.map((params) =>
-            kpiApi
-              .fetchSubordinateEntries(params)
-              .then((resp) => resp)
-              .catch(() => null)
-          )
-        );
-        const taskMap = new Map();
-        results.forEach((resp) => {
-          const arr = Array.isArray(resp) ? resp : resp?.tasks || [];
-          arr.forEach((t) => {
-            const key = t.row ?? t.id;
-            if (key == null) return;
-            if (!taskMap.has(key)) taskMap.set(key, t);
           });
+        } catch (e) {
+          baseResp = null;
+        }
+        let arr = [];
+        if (baseResp) {
+          arr = Array.isArray(baseResp) ? baseResp : baseResp?.tasks || [];
+        }
+        // If still empty, try with manager fallback using username alias
+        if (arr.length === 0) {
+          const uname = localStorage.getItem("username") || "";
+          const candidates = [];
+          if (managerName) candidates.push(managerName);
+          if (uname) candidates.push(uname);
+          for (const m of candidates) {
+            try {
+              const resp = await kpiApi.fetchSubordinateEntries({
+                manager: m,
+                personal_code,
+                category: "All",
+                departman: managerDepartman || "",
+                not_managed: false,
+                outside_department: false,
+              });
+              const tmp = Array.isArray(resp) ? resp : resp?.tasks || [];
+              if (tmp.length > 0) {
+                arr = tmp;
+                break;
+              }
+            } catch {}
+          }
+        }
+        const taskMap = new Map();
+        arr.forEach((t) => {
+          const key = t.row ?? t.id;
+          if (key == null) return;
+          if (!taskMap.has(key)) taskMap.set(key, t);
         });
         const tasks = Array.from(taskMap.values());
         const managerFull = String(managerName || "").trim();
@@ -118,8 +124,8 @@ function KpiPersonReport() {
             KPI_Info: t.kpi_info || "",
             target: t.target || "",
             KPI_weight: t.kpi_weight || "",
-            KPI_Achievement: t.kpi_achievement || "",
-            Percentage_Achievement: t.score_achievement_alt || 0,
+            KPI_Achievement: normalizePercent(t.kpi_achievement),
+            Percentage_Achievement: normalizePercent(t.score_achievement_alt),
             Score_Achievement: t.score_achievement || 0,
             Type: t.entry_type === "Editable" ? "" : t.entry_type || "",
             Status:
@@ -249,15 +255,15 @@ function KpiPersonReport() {
         _d3: 0,
       };
       if (q === "Q1" && dt >= g._d1) {
-        g.q1 = e.KPI_Achievement;
+        g.q1 = normalizePercent(e.KPI_Achievement);
         g._d1 = dt;
       }
       if (q === "Q2" && dt >= g._d2) {
-        g.q2 = e.KPI_Achievement;
+        g.q2 = normalizePercent(e.KPI_Achievement);
         g._d2 = dt;
       }
       if (q === "Q3" && dt >= g._d3) {
-        g.q3 = e.KPI_Achievement;
+        g.q3 = normalizePercent(e.KPI_Achievement);
         g._d3 = dt;
       }
       map.set(name, g);
@@ -293,6 +299,8 @@ function KpiPersonReport() {
   const [savingRow, setSavingRow] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
   const [selectedQuarter, setSelectedQuarter] = useState({});
+  const [sortBy, setSortBy] = useState("created");
+  const [sortDir, setSortDir] = useState("desc");
   const formatDate = (v) => {
     if (!v) return "";
     const d = new Date(v);
@@ -300,6 +308,71 @@ function KpiPersonReport() {
       ? String(v)
       : d.toLocaleDateString("fa-IR");
   };
+  const formatTarget = (v) => {
+    if (v === null || v === undefined || v === "") return "";
+    const s = String(v).trim();
+    const n = Number(s.replace(/,/g, ""));
+    if (Number.isNaN(n)) return s;
+    if (n > 0 && n <= 1.0001) return String(Math.round(n * 100));
+    return String(n);
+  };
+
+  const toggleSort = (key) => {
+    setSortBy((prev) => (prev === key ? prev : key));
+    setSortDir((prev) =>
+      sortBy === key ? (prev === "asc" ? "desc" : "asc") : "desc"
+    );
+  };
+
+  const tableRows = useMemo(() => {
+    const rows = filteredEntries.slice();
+    const dir = sortDir === "asc" ? 1 : -1;
+    const by = sortBy;
+    rows.sort((a, b) => {
+      if (by === "kpi")
+        return dir * String(a.KPIFa || "").localeCompare(String(b.KPIFa || ""));
+      if (by === "quarter")
+        return (
+          dir *
+          String(getQuarter(a) || "").localeCompare(String(getQuarter(b) || ""))
+        );
+      if (by === "status")
+        return (
+          dir * String(a.Status || "").localeCompare(String(b.Status || ""))
+        );
+      if (by === "type")
+        return dir * String(a.Type || "").localeCompare(String(b.Type || ""));
+      if (by === "created")
+        return (
+          dir *
+          ((new Date(a.created_at || 0).getTime() || 0) -
+            (new Date(b.created_at || 0).getTime() || 0))
+        );
+      if (by === "ach")
+        return (
+          dir *
+          ((Number(a.KPI_Achievement) || 0) - (Number(b.KPI_Achievement) || 0))
+        );
+      if (by === "pct")
+        return (
+          dir *
+          ((Number(a.Percentage_Achievement) || 0) -
+            (Number(b.Percentage_Achievement) || 0))
+        );
+      if (by === "score")
+        return (
+          dir *
+          ((Number(a.Score_Achievement) || 0) -
+            (Number(b.Score_Achievement) || 0))
+        );
+      return (
+        dir *
+        ((new Date(a.created_at || 0).getTime() || 0) -
+          (new Date(b.created_at || 0).getTime() || 0))
+      );
+    });
+    return rows;
+  }, [filteredEntries, sortBy, sortDir, getQuarter]);
 
   return (
     <div className="flex-1 overflow-auto relative z-10">
@@ -374,7 +447,7 @@ function KpiPersonReport() {
           <div className="mb-3 flex items-center gap-2" dir="rtl">
             <button
               onClick={() => navigate(-1)}
-              className={`px-3 py-2 rounded ${
+              className={`px-3 py-2 rounded cursor-pointer ${
                 isLight
                   ? "bg-gray-200 hover:bg-gray-300"
                   : "bg-gray-600 hover:bg-gray-500"
@@ -383,8 +456,38 @@ function KpiPersonReport() {
               بازگشت
             </button>
             <button
-              onClick={() => navigate(`/kpimanagerreview?pc=${personal_code}`)}
-              className={`px-3 py-2 rounded ${
+              onClick={() => {
+                const counts = new Map();
+                for (const e of entries) {
+                  const d = String(e.departman || "")
+                    .replaceAll("ي", "ی")
+                    .replaceAll("ك", "ک")
+                    .trim();
+                  if (!d) continue;
+                  counts.set(d, (counts.get(d) || 0) + 1);
+                }
+                let dep = "";
+                if (counts.size > 0) {
+                  dep = Array.from(counts.entries()).sort(
+                    (a, b) => b[1] - a[1]
+                  )[0][0];
+                } else {
+                  try {
+                    const info = JSON.parse(
+                      localStorage.getItem("kpiUserInfo") || "{}"
+                    );
+                    dep = String(info.departman || "")
+                      .replaceAll("ي", "ی")
+                      .replaceAll("ك", "ک")
+                      .trim();
+                  } catch {}
+                }
+                const url = `/kpimanagerreview?pc=${personal_code}${
+                  dep ? `&departman=${encodeURIComponent(dep)}` : ""
+                }`;
+                navigate(url);
+              }}
+              className={`px-3 py-2 rounded cursor-pointer ${
                 isLight
                   ? "bg-purple-600 text-white hover:bg-purple-700"
                   : "bg-purple-500 text-white hover:bg-purple-600"
@@ -399,7 +502,7 @@ function KpiPersonReport() {
                 setTypeFilter("");
                 setKpiSearch("");
               }}
-              className={`px-3 py-2 rounded ${
+              className={`px-3 py-2 rounded cursor-pointer ${
                 isLight
                   ? "bg-gray-200 hover:bg-gray-300"
                   : "bg-gray-600 hover:bg-gray-500"
@@ -445,7 +548,7 @@ function KpiPersonReport() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className={`px-3 py-2 rounded ${
+              className={`px-3 py-2 rounded cursor-pointer ${
                 isLight
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-blue-500 text-white hover:bg-blue-600"
@@ -455,17 +558,45 @@ function KpiPersonReport() {
             </button>
           </div>
           <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              کد پرسنلی: {personal_code}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">کد پرسنلی</div>
+              <div className="text-base font-semibold">{personal_code}</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              تعداد KPI: {stats.count}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">تعداد KPI</div>
+              <div className="text-base font-semibold">{stats.count}</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              میانگین درصد: {stats.avgPct}%
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">میانگین درصد</div>
+              <div className="text-base font-semibold">{stats.avgPct}%</div>
             </div>
-            <div className={isLight ? "text-gray-900" : "text-gray-100"}>
-              تایید شده: {stats.confirmed}
+            <div
+              className={`p-3 rounded border ${
+                isLight
+                  ? "bg-white text-gray-900 border-gray-200"
+                  : "bg-gray-800 text-gray-100 border-gray-700"
+              }`}
+            >
+              <div className="text-xs opacity-70">تایید شده</div>
+              <div className="text-base font-semibold">{stats.confirmed}</div>
             </div>
           </div>
 
@@ -478,157 +609,224 @@ function KpiPersonReport() {
               داده‌ای یافت نشد
             </div>
           ) : (
-            <ul className="divide-y divide-gray-300">
-              {filteredEntries
-                .slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.created_at || 0) - new Date(a.created_at || 0)
-                )
-                .map((e) => (
-                  <li key={e.id} className="py-3 px-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div
-                        className={isLight ? "text-gray-900" : "text-gray-100"}
-                      >
-                        <span>{e.KPIFa}</span>
-                        <span
-                          className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                            isLight
-                              ? "bg-gray-200 text-gray-700"
-                              : "bg-gray-600 text-gray-200"
-                          }`}
-                        >
-                          {getQuarter(e) || ""}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={
-                            isLight ? "text-gray-700" : "text-gray-300"
-                          }
-                        >
-                          امتیاز فعلی: {e.KPI_Achievement ?? "-"}
-                        </span>
-                        <select
-                          value={selectedQuarter[e.id] || getQuarter(e) || "Q1"}
-                          onChange={(ev) =>
-                            setSelectedQuarter((prev) => ({
-                              ...prev,
-                              [e.id]: ev.target.value,
-                            }))
-                          }
-                          className={`px-2 py-1 rounded border text-sm ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                        >
-                          <option value="Q1">Q1</option>
-                          <option value="Q2">Q2</option>
-                          <option value="Q3">Q3</option>
-                        </select>
-                        <input
-                          type="number"
-                          value={
-                            editValues[e.id] ??
-                            (() => {
-                              const name = String(e.KPIFa || "");
-                              const q =
-                                selectedQuarter[e.id] || getQuarter(e) || "Q1";
-                              const agg = kpiQuarterAchievements.find(
-                                (it) => it.name === name
-                              );
-                              if (!agg) return e.KPI_Achievement ?? "";
-                              if (q === "Q1") return agg.q1 ?? "";
-                              if (q === "Q2") return agg.q2 ?? "";
-                              return agg.q3 ?? "";
-                            })()
-                          }
-                          onChange={(ev) =>
-                            setEditValues((prev) => ({
-                              ...prev,
-                              [e.id]: ev.target.value,
-                            }))
-                          }
-                          className={`w-24 px-2 py-1 rounded border text-sm ${
-                            isLight
-                              ? "bg-white text-gray-900 border-gray-300"
-                              : "bg-gray-800 text-gray-200 border-gray-600"
-                          }`}
-                        />
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10">
+                  <tr className={isLight ? "bg-gray-100" : "bg-gray-700"}>
+                    <th className="px-2 py-2 text-center">ردیف</th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("kpi")}
+                    >
+                      KPI
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("quarter")}
+                    >
+                      Quarter
+                    </th>
+                    {/* <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("status")}
+                    >
+                      وضعیت
+                    </th> */}
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("type")}
+                    >
+                      نوع
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("created")}
+                    >
+                      تاریخ
+                    </th>
+                    <th className="px-2 py-2 text-center">Target</th>
+                    <th className="px-2 py-2 text-center">Weight</th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("ach")}
+                    >
+                      Achievement
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("pct")}
+                    >
+                      %
+                    </th>
+                    <th
+                      className="px-2 py-2 text-center cursor-pointer"
+                      onClick={() => toggleSort("score")}
+                    >
+                      Score
+                    </th>
+                    <th className="px-2 py-2 text-center">ویرایش</th>
+                  </tr>
+                </thead>
+                <tbody
+                  className={
+                    isLight
+                      ? "divide-y divide-gray-200"
+                      : "divide-y divide-gray-600"
+                  }
+                >
+                  {tableRows.map((e, index) => (
+                    <tr
+                      key={e.id}
+                      className={
+                        isLight ? "hover:bg-gray-50" : "hover:bg-gray-700"
+                      }
+                    >
+                      <td className="px-2 py-2 text-center">{index + 1}</td>
+                      <td className="px-2 py-2 text-center">
                         <button
-                          onClick={async () => {
-                            try {
-                              setSavingRow(e.id);
-                              const val = editValues[e.id] ?? "";
-                              const name = String(e.KPIFa || "");
-                              const q =
-                                selectedQuarter[e.id] || getQuarter(e) || "Q1";
-                              const target = (kpiQuarterRows.get(name) || {})[
-                                q
-                              ];
-                              if (!target) {
-                                toast.error("رکورد کوارتر انتخابی یافت نشد");
-                                return;
-                              }
-                              await kpiApi.updateKPIEntryRow(target.id, {
-                                kpi_achievement: val,
-                              });
-                              setEntries((prev) =>
-                                prev.map((x) =>
-                                  x.id === target.id
-                                    ? { ...x, KPI_Achievement: val }
-                                    : x
-                                )
-                              );
-                              toast.success("امتیاز ثبت شد");
-                            } catch {
-                              toast.error("ثبت امتیاز با خطا مواجه شد");
-                            } finally {
-                              setSavingRow(null);
-                            }
-                          }}
-                          disabled={savingRow === e.id}
-                          className={`px-3 py-1 rounded text-sm ${
+                          onClick={() =>
+                            navigate(
+                              `/kpi/kpi/${encodeURIComponent(e.KPIFa || "")}`
+                            )
+                          }
+                          className={
                             isLight
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-blue-500 text-white hover:bg-blue-600"
-                          }`}
+                              ? "hover:text-blue-700"
+                              : "hover:text-blue-300"
+                          }
                         >
-                          ثبت
+                          {e.KPIFa}
                         </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        Q1:{" "}
-                        {kpiQuarterAchievements.find(
-                          (it) => it.name === String(e.KPIFa)
-                        )?.q1 ?? "-"}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        Q2:{" "}
-                        {kpiQuarterAchievements.find(
-                          (it) => it.name === String(e.KPIFa)
-                        )?.q2 ?? "-"}
-                      </div>
-                      <div
-                        className={isLight ? "text-gray-700" : "text-gray-300"}
-                      >
-                        Q3:{" "}
-                        {kpiQuarterAchievements.find(
-                          (it) => it.name === String(e.KPIFa)
-                        )?.q3 ?? "-"}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-            </ul>
+                      </td>
+                      {/* <td className="px-2 py-2 text-center">
+                        {e.KPI_Info || ""}
+                      </td> */}
+                      <td className="px-2 py-2 text-center">
+                        {getQuarter(e) || ""}
+                      </td>
+                      {/* <td className="px-2 py-2">{e.Status || ""}</td> */}
+                      <td className="px-2 py-2 text-center">{e.Type || ""}</td>
+                      <td className="px-2 py-2 text-center">
+                        {formatDate(e.created_at)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        {formatTarget(e.target)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        {formatTarget(e.KPI_weight)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        {formatTarget(e.KPI_Achievement)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        {formatTarget(e.Percentage_Achievement)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        {formatTarget(e.Score_Achievement)}
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <div className="flex items-center justify-end gap-2">
+                          <select
+                            value={
+                              selectedQuarter[e.id] || getQuarter(e) || "Q1"
+                            }
+                            onChange={(ev) =>
+                              setSelectedQuarter((prev) => ({
+                                ...prev,
+                                [e.id]: ev.target.value,
+                              }))
+                            }
+                            className={`px-2 py-1 rounded border text-xs ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                          >
+                            <option value="Q1">Q1</option>
+                            <option value="Q2">Q2</option>
+                            <option value="Q3">Q3</option>
+                          </select>
+                          <input
+                            type="number"
+                            value={
+                              editValues[e.id] ??
+                              (() => {
+                                const name = String(e.KPIFa || "");
+                                const q =
+                                  selectedQuarter[e.id] ||
+                                  getQuarter(e) ||
+                                  "Q1";
+                                const agg = kpiQuarterAchievements.find(
+                                  (it) => it.name === name
+                                );
+                                if (!agg) return e.KPI_Achievement ?? "";
+                                if (q === "Q1") return agg.q1 ?? "";
+                                if (q === "Q2") return agg.q2 ?? "";
+                                return agg.q3 ?? "";
+                              })()
+                            }
+                            onChange={(ev) =>
+                              setEditValues((prev) => ({
+                                ...prev,
+                                [e.id]: ev.target.value,
+                              }))
+                            }
+                            className={`w-20 px-2 py-1 rounded border text-xs ${
+                              isLight
+                                ? "bg-white text-gray-900 border-gray-300"
+                                : "bg-gray-800 text-gray-200 border-gray-600"
+                            }`}
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                setSavingRow(e.id);
+                                const val = editValues[e.id] ?? "";
+                                const name = String(e.KPIFa || "");
+                                const q =
+                                  selectedQuarter[e.id] ||
+                                  getQuarter(e) ||
+                                  "Q1";
+                                const target = (kpiQuarterRows.get(name) || {})[
+                                  q
+                                ];
+                                if (!target) {
+                                  toast.error("رکورد کوارتر انتخابی یافت نشد");
+                                  return;
+                                }
+                                await kpiApi.updateKPIEntryRow(target.id, {
+                                  kpi_achievement: val,
+                                });
+                                setEntries((prev) =>
+                                  prev.map((x) =>
+                                    x.id === target.id
+                                      ? { ...x, KPI_Achievement: val }
+                                      : x
+                                  )
+                                );
+                                toast.success("امتیاز ثبت شد");
+                              } catch {
+                                toast.error("ثبت امتیاز با خطا مواجه شد");
+                              } finally {
+                                setSavingRow(null);
+                              }
+                            }}
+                            disabled={savingRow === e.id}
+                            className={`px-3 py-1 rounded text-xs ${
+                              isLight
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "bg-blue-500 text-white hover:bg-blue-600"
+                            }`}
+                          >
+                            ثبت
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </main>

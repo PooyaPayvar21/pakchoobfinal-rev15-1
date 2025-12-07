@@ -1,19 +1,9 @@
+from turtle import mode
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.validators import MinLengthValidator
 from django.conf import settings
-
-# Create your models here.
-
-
-class Section(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-
-    def __str__(self):
-        return self.name
-
-    # Login Users
 
 
 class LoginUser(AbstractUser):
@@ -82,17 +72,21 @@ class LoginUser(AbstractUser):
     sections = models.JSONField(default=list, blank=True)
     additional_roles = models.JSONField(default=list, blank=True)
 
+    company_name = models.CharField(max_length=200, blank=True, default="")
+    season = models.CharField(max_length=50, blank=True, default="")
+    personal_code = models.CharField(max_length=50, blank=True, default="")
+    full_name = models.CharField(max_length=200, blank=True, default="")
+    direct_management = models.CharField(max_length=200, blank=True, default="")
+    departman = models.CharField(max_length=200, blank=True, default="")
+    kpi_role = models.CharField(max_length=100, blank=True, default="")
+
     def save(self, *args, **kwargs):
-        # Ensure sections is always a list
         if not isinstance(self.sections, list):
             self.sections = [self.sections] if self.sections else []
-
-        # Ensure additional_roles is always a list
         if not isinstance(self.additional_roles, list):
             self.additional_roles = (
                 [self.additional_roles] if self.additional_roles else []
             )
-
         super().save(*args, **kwargs)
 
     def is_technician(self):
@@ -105,7 +99,6 @@ class LoginUser(AbstractUser):
         return self.role == "operator"
 
     def can_view_department_forms(self, department):
-        """Check if user can view forms for a specific department"""
         if self.user_type == "pm":
             return True
         if self.user_type == department:
@@ -123,7 +116,17 @@ class LoginUser(AbstractUser):
     class Meta:
         db_table = "login_user"
 
-    # Submit Form
+
+class Section(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    # Login Users
+
+
+
 
 
 class SubmitForm(models.Model):
@@ -1070,3 +1073,56 @@ class KPIEntry(models.Model):
 
     def __str__(self):
         return f"{self.row} - {self.company_name} - {self.full_name}"
+
+
+class KPIPersonel(models.Model):
+    full_name = models.CharField(max_length=200, blank=True, default="")
+    personal_code = models.CharField(max_length=50, db_index=True)
+    job_title = models.CharField(max_length=100, blank=True, default="")
+    departman = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "KPI Personel"
+        verbose_name_plural = "KPI Personels"
+        ordering = ["full_name"]
+
+    def __str__(self):
+        return f"{self.full_name} - {self.personal_code}"
+
+
+class GroupQ2Entry(models.Model):
+    row_index = models.IntegerField(null=True, blank=True)
+    company_name = models.CharField(max_length=200, blank=True, default="")
+    season = models.CharField(max_length=50, blank=True, default="")
+    personal_code = models.CharField(max_length=50, blank=True, default="")
+    full_name = models.CharField(max_length=200, blank=True, default="")
+    job_title = models.CharField(max_length=100, blank=True, default="")
+    direct_manager_code = models.CharField(max_length=50, blank=True, default="")
+    manager_name = models.CharField(max_length=200, blank=True, default="")
+    departman = models.CharField(max_length=200, blank=True, default="")
+    category_fa = models.CharField(max_length=200, blank=True, default="")
+    category_en = models.CharField(max_length=200, blank=True, default="")
+    obj_weight = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    kpi_en = models.CharField(max_length=500, blank=True, default="")
+    kpi_fa = models.CharField(max_length=500, blank=True, default="")
+    kpi_info = models.TextField(blank=True, default="")
+    target = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    kpi_weight = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    kpi_achievement = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    percentage_achievement = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    score_achievement = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    entry_type = models.CharField(max_length=100, blank=True, default="")
+    sum_percent = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Group Q2 Entry"
+        verbose_name_plural = "Group Q2 Entries"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.company_name} - {self.full_name} - {self.kpi_fa}"

@@ -49,10 +49,15 @@ const LoginMainForm = ({ userType, onLoginSuccess }) => {
           navigate("/kpidashboard");
           break;
         case "superadmin":
-        case "ceo":
-        case "management":
-        case "manager":
           navigate("/kpidashboard");
+        case "ceo":
+          navigate("/kpidashboard");
+          break;
+        case "management":
+          navigate("/kpipeopleworks");
+          break;
+        case "manager":
+          navigate("/kpipeopleworks");
           break;
         default:
           console.warn("Unknown user type:", userTypeState);
@@ -86,6 +91,7 @@ const LoginMainForm = ({ userType, onLoginSuccess }) => {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user_type", response.data.user_type);
         localStorage.setItem("user_role", response.data.role);
+        localStorage.setItem("full_name", response.data.full_name);
         localStorage.setItem("username", username);
         // Ensure sections are stored as a comma-separated string
         const sections = Array.isArray(response.data.sections)

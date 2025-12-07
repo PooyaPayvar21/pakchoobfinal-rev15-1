@@ -1,24 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "../components/Common/Header";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { kpiApi } from "../services/kpiApi";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Legend,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
-} from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 function KpiDashboard() {
+  const navigate = useNavigate();
   const [selectedCard, setSelectedCard] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedPerson, setSelectedPerson] = useState(null);
@@ -35,6 +25,51 @@ function KpiDashboard() {
     useState(false);
   const [showBarChart, setShowBarChart] = useState(false);
   const isLight = document.documentElement.classList.contains("light");
+  const barChartRef = useRef(null);
+  const [departmanMetrics, setDepartmanMetrics] = useState([]);
+  const [isLoadingDepartmanMetrics, setIsLoadingDepartmanMetrics] =
+    useState(false);
+  const [selectedSectionMetrics, setSelectedSectionMetrics] = useState(null);
+  const demoMode = true;
+  const demoSystemValue = 76;
+  const demoDepartmanValues = {
+    IT: 80,
+    امورمالی: 65,
+    "برنامه ریزی": 58,
+    پروژه: 72,
+    تامین: 55,
+    "زنجیره تامین": 68,
+    فروش: 90,
+    مارکتینگ: 60,
+    مدیریت: 86,
+    "منابع انسانی": 74,
+  };
+  const totalKpi = parseInt(kpiMetrics?.total_works || 0);
+  const totalCompleted = parseInt(kpiMetrics?.completed || 0);
+  const systemCompletionPercent = demoMode
+    ? demoSystemValue
+    : totalKpi > 0
+    ? Math.round((totalCompleted / totalKpi) * 100)
+    : 0;
+  const systemPieData = [
+    { name: "میانگین", value: systemCompletionPercent, color: "#22c55e" },
+    {
+      name: "باقیمانده",
+      value: 100 - systemCompletionPercent,
+      color: isLight ? "#e5e7eb" : "#374151",
+    },
+  ];
+
+  useEffect(() => {
+    if (showBarChart) {
+      requestAnimationFrame(() => {
+        barChartRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+  }, [showBarChart]);
 
   // Load facilities and KPI metrics on mount
   useEffect(() => {
@@ -49,9 +84,8 @@ function KpiDashboard() {
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      const [facilitiesData, sectionsData, metricsData] = await Promise.all([
+      const [facilitiesData, metricsData] = await Promise.all([
         kpiApi.fetchFacilities(),
-        kpiApi.fetchSections(),
         kpiApi.getKPIMetrics(),
       ]);
 
@@ -73,8 +107,23 @@ function KpiDashboard() {
       }
 
       setFacilities(filteredFacilities);
-      setSections(sectionsData);
+      const departmansList = [
+        "IT",
+        "امورمالی",
+        "برنامه ریزی",
+        "پروژه",
+        "تامین",
+        "زنجیره تامین",
+        "فروش",
+        "مارکتینگ",
+        "مدیریت",
+        "منابع انسانی",
+      ];
+      setSections(departmansList);
       setKpiMetrics(metricsData);
+      if (departmansList.length > 0) {
+        loadDepartmanMetrics(departmansList);
+      }
 
       // Load metrics for ALL facilities (for bar chart)
       // Use facilitiesData instead of filteredFacilities to show all companies
@@ -124,6 +173,40 @@ function KpiDashboard() {
     }
   };
 
+  const loadDepartmanMetrics = async (sectionsList) => {
+    try {
+      setIsLoadingDepartmanMetrics(true);
+      const metricsPromises = sectionsList.map(async (section) => {
+        try {
+          const metrics = await kpiApi.getKPIMetrics({ section });
+          return {
+            name: section,
+            total: parseInt(metrics.total_works || 0),
+            completed: parseInt(metrics.completed || 0),
+            working: parseInt(metrics.working || 0),
+            notDone: parseInt(metrics.not_done || 0),
+            metrics,
+          };
+        } catch (error) {
+          return {
+            name: section,
+            total: 0,
+            completed: 0,
+            working: 0,
+            notDone: 0,
+            metrics: null,
+          };
+        }
+      });
+      const metricsData = await Promise.all(metricsPromises);
+      setDepartmanMetrics(metricsData);
+    } catch (error) {
+      toast.error("خطا در بارگذاری داده‌های دپارتمان‌ها");
+    } finally {
+      setIsLoadingDepartmanMetrics(false);
+    }
+  };
+
   const handleCardClick = (title) => {
     setSelectedCard(title);
     setSelectedSection(null);
@@ -167,7 +250,7 @@ function KpiDashboard() {
                   isLight ? "text-gray-900" : "text-gray-100"
                 }`}
               >
-                وضعیت کل KPI شرکت ها
+                وضعیت کل KPI دپارتمان‌ها
               </h2>
               <div
                 className={`backdrop-blur-md shadow-lg rounded-xl p-6 border ${
@@ -178,98 +261,63 @@ function KpiDashboard() {
               >
                 {kpiMetrics ? (
                   <div className="flex flex-col items-center">
-                    {/* Modern Donut Chart with Center Text */}
+                    {/* Main Pie Chart using departman design */}
                     <div
                       className="relative w-full max-w-lg mx-auto cursor-pointer"
                       style={{ cursor: "pointer" }}
                       onClick={() => setShowBarChart((prev) => !prev)}
                     >
                       <ResponsiveContainer width="100%" height={450}>
-                        <PieChart
-                          className="cursor-pointer"
-                          style={{ cursor: "pointer" }}
-                        >
-                          <defs>
-                            <linearGradient
-                              id="pieGradient"
-                              x1="0"
-                              y1="0"
-                              x2="0"
-                              y2="1"
-                            >
-                              {/* Change these colors to customize Pie Chart */}
-                              {/* Example: Green gradient: #10b981, #059669, #047857 */}
-                              {/* Example: Purple gradient: #8b5cf6, #7c3aed, #6d28d9 */}
-                              {/* Example: Red gradient: #ef4444, #dc2626, #b91c1c */}
-                              {/* Example: Orange gradient: #f97316, #ea580c, #c2410c */}
-                              <stop
-                                offset="0%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                              <stop
-                                offset="50%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                            </linearGradient>
-                          </defs>
+                        <PieChart>
                           <Pie
-                            data={[
-                              {
-                                name: "کل KPI",
-                                value: parseInt(kpiMetrics.total_works || 0),
-                              },
-                            ]}
+                            data={systemPieData}
                             cx="50%"
                             cy="50%"
                             innerRadius={80}
                             outerRadius={140}
+                            dataKey="value"
+                            paddingAngle={2}
                             startAngle={90}
                             endAngle={-270}
-                            dataKey="value"
-                            animationBegin={0}
-                            animationDuration={1500}
-                            stroke="none"
-                            fill="url(#pieGradient)"
                           >
-                            <Cell fill="url(#pieGradient)" />
+                            {systemPieData.map((d, i) => (
+                              <Cell key={`system-pie-${i}`} fill={d.color} />
+                            ))}
                           </Pie>
                           <Tooltip
-                            formatter={(value) => [
-                              `${parseInt(value).toLocaleString()} KPI`,
-                              "کل KPI",
+                            formatter={(value, name) => [
+                              `${parseInt(value || 0)}`,
+                              name,
                             ]}
                             contentStyle={{
-                              backgroundColor: "#016630",
-                              border: "1px solid #016630",
+                              backgroundColor: isLight ? "#ffffff" : "#1f2937",
+                              border: `1px solid ${
+                                isLight ? "#e5e7eb" : "#374151"
+                              }`,
                               borderRadius: "12px",
-                              color: "white",
+                              color: isLight ? "#111827" : "#e5e7eb",
                               direction: "rtl",
-                              padding: "16px",
+                              padding: "14px",
                               fontSize: "14px",
-                              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
                             }}
                           />
                         </PieChart>
                       </ResponsiveContainer>
 
-                      {/* Center Text */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <div className="text-6xl font-bold text-blue-400 mb-2">
-                          {parseInt(
-                            kpiMetrics.total_works || 0
-                          ).toLocaleString()}
+                        <div
+                          className={`${
+                            isLight ? "text-gray-900" : "text-gray-100"
+                          } text-6xl font-extrabold mb-2`}
+                        >
+                          {systemCompletionPercent}
                         </div>
-                        <div className="text-xl text-gray-300 font-semibold">
-                          کل KPI
-                        </div>
-                        <div className="text-sm text-gray-400 mt-1">
+
+                        <div
+                          className={`${
+                            isLight ? "text-gray-500" : "text-gray-400"
+                          } text-sm mt-1`}
+                        >
                           مجموع کل سیستم
                         </div>
                       </div>
@@ -330,12 +378,17 @@ function KpiDashboard() {
             <div>
               {/* Modern Bar Chart for Facilities (toggled by pie chart click) */}
               {showBarChart && (
-                <div
+                <motion.div
+                  ref={barChartRef}
                   className={`backdrop-blur-md shadow-2xl rounded-2xl p-8 border mb-8 ${
                     isLight
                       ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
                       : "bg-gradient-to-br from-gray-800/60 to-gray-900/60 border-gray-700/50"
                   }`}
+                  initial={{ opacity: 0, y: 32, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  style={{ scrollMarginTop: 90 }}
                 >
                   <div className="mb-8" dir="rtl">
                     <h3
@@ -343,176 +396,301 @@ function KpiDashboard() {
                         isLight ? "text-gray-900" : "text-gray-100"
                       }`}
                     >
-                      مقایسه KPI شرکت‌ها
+                      دپارتمان‌ها
                     </h3>
-                    <p
+                    {/* <p
                       className={`${
                         isLight ? "text-gray-600" : "text-gray-400"
                       } text-sm`}
                     >
-                      نمایش تعداد KPI هر شرکت به صورت مقایسه‌ای
-                    </p>
+                    </p> */}
                   </div>
-                  {isLoadingFacilityMetrics ? (
+                  {isLoadingDepartmanMetrics ? (
                     <div className="text-center text-gray-400 py-20">
                       <div className="animate-pulse">
-                        در حال بارگذاری داده‌های شرکت‌ها...
+                        در حال بارگذاری داده‌های دپارتمان‌ها...
                       </div>
                     </div>
-                  ) : facilityMetrics.length > 0 ? (
+                  ) : departmanMetrics.length > 0 ? (
                     <div dir="rtl">
-                      <ResponsiveContainer width="100%" height={500}>
-                        <BarChart
-                          data={facilityMetrics}
-                          margin={{
-                            top: 30,
-                            right: 40,
-                            left: 30,
-                            bottom: 140,
-                          }}
-                          barCategoryGap="20%"
-                        >
-                          <defs>
-                            <linearGradient
-                              id="barGradient"
-                              x1="0"
-                              y1="0"
-                              x2="0"
-                              y2="1"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {departmanMetrics.map((entry) => {
+                          const completionPercent = demoMode
+                            ? demoDepartmanValues[entry.name] ?? 50
+                            : entry.total > 0
+                            ? Math.round((entry.completed / entry.total) * 100)
+                            : 0;
+                          const data = [
+                            {
+                              name: "میانگین",
+                              value: completionPercent,
+                              color: "#22c55e",
+                            },
+                            {
+                              name: "باقیمانده",
+                              value: 100 - completionPercent,
+                              color: isLight ? "#e5e7eb" : "#374151",
+                            },
+                          ];
+                          return (
+                            <button
+                              type="button"
+                              key={entry.name}
+                              onClick={() => {
+                                navigate(
+                                  `/kpipeopleworks?departman=${encodeURIComponent(
+                                    entry.name
+                                  )}`
+                                );
+                              }}
+                              className={`rounded-2xl p-4 border transition-all ${
+                                isLight
+                                  ? "bg-white/80 border-gray-200 hover:shadow-lg"
+                                  : "bg-gray-800/60 border-gray-700 hover:bg-green-700"
+                              }`}
                             >
-                              {/* Change these colors to customize Bar Chart */}
-                              {/* Example: Green gradient: #10b981, #059669, #047857 */}
-                              {/* Example: Purple gradient: #8b5cf6, #7c3aed, #6d28d9 */}
-                              {/* Example: Red gradient: #ef4444, #dc2626, #b91c1c */}
-                              {/* Example: Orange gradient: #f97316, #ea580c, #c2410c */}
-                              <stop
-                                offset="0%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                              <stop
-                                offset="50%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor="#016630"
-                                stopOpacity={1}
-                              />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid
-                            strokeDasharray="3 0"
-                            stroke="#374151"
-                            opacity={0.5}
-                            vertical={true}
-                          />
-                          <XAxis
-                            dataKey="name"
-                            angle={-90}
-                            textAnchor="center"
-                            height={100}
-                            tick={{
-                              fill: "#e5e7eb",
-                              fontSize: 12,
-                              fontWeight: 600,
+                              <div
+                                className={`text-lg font-bold mb-2 ${
+                                  isLight ? "text-gray-900" : "text-gray-100"
+                                }`}
+                              >
+                                {entry.name}
+                              </div>
+                              {/* <div
+                                className={`text-sm mb-4 ${
+                                  isLight ? "text-gray-600" : "text-gray-400"
+                                }`}
+                              >
+                                مجموع:{" "}
+                                {parseInt(entry.total || 0).toLocaleString()}{" "}
+                                KPI
+                              </div> */}
+                              <div
+                                style={{ height: 220, position: "relative" }}
+                              >
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie
+                                      data={data}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={60}
+                                      outerRadius={90}
+                                      dataKey="value"
+                                      paddingAngle={2}
+                                      startAngle={90}
+                                      endAngle={-270}
+                                    >
+                                      {data.map((d, i) => (
+                                        <Cell
+                                          key={`departman-pie-${i}`}
+                                          fill={d.color}
+                                        />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip
+                                      formatter={(value, name) => [
+                                        `${parseInt(value || 0)}`,
+                                        name,
+                                      ]}
+                                      contentStyle={{
+                                        backgroundColor: isLight
+                                          ? "#ffffff"
+                                          : "#1f2937",
+                                        border: `1px solid ${
+                                          isLight ? "#e5e7eb" : "#374151"
+                                        }`,
+                                        borderRadius: "12px",
+                                        color: isLight ? "#111827" : "#e5e7eb",
+                                        direction: "rtl",
+                                        padding: "14px",
+                                        fontSize: "14px",
+                                      }}
+                                    />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <div
+                                    className={`text-center ${
+                                      isLight
+                                        ? "text-gray-900"
+                                        : "text-gray-100"
+                                    }`}
+                                  >
+                                    <div className="text-3xl font-extrabold">
+                                      {completionPercent}
+                                    </div>
+                                    {/* <div
+                                      className={`text-sm ${
+                                        isLight
+                                          ? "text-gray-600"
+                                          : "text-gray-300"
+                                      }`}
+                                    >
+                                      میانگین
+                                    </div> */}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {false && (
+                        <ResponsiveContainer width="100%" height={500}>
+                          <BarChart
+                            data={facilityMetrics}
+                            margin={{
+                              top: 30,
+                              right: 40,
+                              left: 30,
+                              bottom: 140,
                             }}
-                            interval={0}
-                            axisLine={{ stroke: "#016630", strokeWidth: 2 }}
-                            tickLine={{ stroke: "#4b5563" }}
-                          />
-                          <YAxis
-                            tick={{
-                              fill: "#1F2937",
-                              fontSize: 13,
-                              fontWeight: 500,
-                            }}
-                            axisLine={{ stroke: "#1F2937", strokeWidth: 2 }}
-                            tickLine={{ stroke: "#4b5563" }}
-                            label={{
-                              value: "تعداد KPI",
-                              angle: -90,
-                              position: "insideLeft",
-                              style: {
-                                textAnchor: "middle",
-                                fill: "#e5e7eb",
-                                fontSize: 15,
-                                fontWeight: 700,
-                              },
-                            }}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "#1f2937",
-                              border: "2px solid #3b82f6",
-                              borderRadius: "12px",
-                              color: "white",
-                              direction: "rtl",
-                              padding: "16px",
-                              fontSize: "14px",
-                              boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)",
-                            }}
-                            cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
-                            formatter={(value) => {
-                              return [
-                                `${parseInt(value).toLocaleString()} KPI`,
-                                "کل KPI",
-                              ];
-                            }}
-                            labelFormatter={(label) => `شرکت: ${label}`}
-                            labelStyle={{
-                              color: "#ffffff",
-                              fontWeight: "bold",
-                              fontSize: "16px",
-                              marginBottom: "8px",
-                            }}
-                          />
-                          <Bar
-                            dataKey="total"
-                            name="total"
-                            fill="url(#barGradient)"
-                            radius={[12, 12, 0, 0]}
-                            animationDuration={1200}
-                            animationEasing="ease-out"
-                            onClick={(data, index) => {
-                              if (data && facilityMetrics[index]) {
-                                handleCardClick(facilityMetrics[index].name);
-                              }
-                            }}
+                            barCategoryGap="20%"
                           >
-                            {facilityMetrics.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                onClick={() => {
-                                  handleCardClick(entry.name);
-                                }}
-                                style={{
-                                  filter:
-                                    "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))",
-                                  cursor: "pointer",
-                                  transition: "all 0.2s ease",
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (e.target) {
-                                    e.target.style.filter =
-                                      "drop-shadow(0 6px 12px rgba(1, 102, 48, 0.5)) brightness(1.1)";
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (e.target) {
-                                    e.target.style.filter =
-                                      "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))";
-                                  }
-                                }}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                            <defs>
+                              <linearGradient
+                                id="barGradient"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                {/* Change these colors to customize Bar Chart */}
+                                {/* Example: Green gradient: #10b981, #059669, #047857 */}
+                                {/* Example: Purple gradient: #8b5cf6, #7c3aed, #6d28d9 */}
+                                {/* Example: Red gradient: #ef4444, #dc2626, #b91c1c */}
+                                {/* Example: Orange gradient: #f97316, #ea580c, #c2410c */}
+                                <stop
+                                  offset="0%"
+                                  stopColor="#016630"
+                                  stopOpacity={1}
+                                />
+                                <stop
+                                  offset="50%"
+                                  stopColor="#016630"
+                                  stopOpacity={1}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor="#016630"
+                                  stopOpacity={1}
+                                />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                              strokeDasharray="3 0"
+                              stroke="#374151"
+                              opacity={0.5}
+                              vertical={true}
+                            />
+                            <XAxis
+                              dataKey="name"
+                              angle={-90}
+                              textAnchor="center"
+                              height={100}
+                              tick={{
+                                fill: "#e5e7eb",
+                                fontSize: 12,
+                                fontWeight: 600,
+                              }}
+                              interval={0}
+                              axisLine={{ stroke: "#016630", strokeWidth: 2 }}
+                              tickLine={{ stroke: "#4b5563" }}
+                            />
+                            <YAxis
+                              tick={{
+                                fill: "#1F2937",
+                                fontSize: 13,
+                                fontWeight: 500,
+                              }}
+                              axisLine={{ stroke: "#1F2937", strokeWidth: 2 }}
+                              tickLine={{ stroke: "#4b5563" }}
+                              label={{
+                                value: "تعداد KPI",
+                                angle: -90,
+                                position: "insideLeft",
+                                style: {
+                                  textAnchor: "middle",
+                                  fill: "#e5e7eb",
+                                  fontSize: 15,
+                                  fontWeight: 700,
+                                },
+                              }}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: "#1f2937",
+                                border: "2px solid #3b82f6",
+                                borderRadius: "12px",
+                                color: "white",
+                                direction: "rtl",
+                                padding: "16px",
+                                fontSize: "14px",
+                                boxShadow:
+                                  "0 10px 25px rgba(59, 130, 246, 0.3)",
+                              }}
+                              cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
+                              formatter={(value) => {
+                                return [
+                                  `${parseInt(value).toLocaleString()} KPI`,
+                                  "کل KPI",
+                                ];
+                              }}
+                              labelFormatter={(label) => `شرکت: ${label}`}
+                              labelStyle={{
+                                color: "#ffffff",
+                                fontWeight: "bold",
+                                fontSize: "16px",
+                                marginBottom: "8px",
+                              }}
+                            />
+                            <Bar
+                              dataKey="total"
+                              name="total"
+                              fill="url(#barGradient)"
+                              radius={[12, 12, 0, 0]}
+                              animationDuration={1200}
+                              animationEasing="ease-out"
+                              onClick={(data, index) => {
+                                if (data && facilityMetrics[index]) {
+                                  handleCardClick(facilityMetrics[index].name);
+                                }
+                              }}
+                            >
+                              {facilityMetrics.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  onClick={() => {
+                                    handleCardClick(entry.name);
+                                  }}
+                                  style={{
+                                    filter:
+                                      "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (e.target) {
+                                      e.target.style.filter =
+                                        "drop-shadow(0 6px 12px rgba(1, 102, 48, 0.5)) brightness(1.1)";
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (e.target) {
+                                      e.target.style.filter =
+                                        "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))";
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
 
                       {/* Modern Summary Stats */}
-                      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-gradient-to-br from-blue-600/20 to-blue-700/20 rounded-xl p-6 border border-blue-500/50 shadow-lg">
                           <div className="flex items-center justify-between mb-3">
                             <div className="text-sm text-gray-300 font-medium">
@@ -564,7 +742,7 @@ function KpiDashboard() {
                             KPI به ازای هر شرکت
                           </div>
                         </div>
-                      </div>
+                      </div> */}
                     </div>
                   ) : (
                     <div className="text-center text-gray-400 py-20">
@@ -572,7 +750,7 @@ function KpiDashboard() {
                       <div>داده‌ای برای نمایش وجود ندارد</div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               )}
 
               {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -594,15 +772,20 @@ function KpiDashboard() {
               </div> */}
             </div>
           </div>
-        ) : (
-          <SectionView
-            facility={selectedCard}
-            sections={sections}
-            onBack={() => setSelectedCard(null)}
-            onSelectSection={(section) => setSelectedSection(section)}
+        ) : selectedSection && !selectedPerson ? (
+          <SectionDetailView
+            facility={""}
+            section={selectedSection}
+            onBack={() => setSelectedSection(null)}
             onSelectPerson={(person) => setSelectedPerson(person)}
-            selectedSection={selectedSection}
-            selectedPerson={selectedPerson}
+            metrics={selectedSectionMetrics}
+          />
+        ) : (
+          <PersonDetailView
+            facility={""}
+            section={selectedSection}
+            person={selectedPerson}
+            onBack={() => setSelectedPerson(null)}
           />
         )}
       </main>
@@ -619,6 +802,20 @@ function SectionView({
   selectedSection,
   selectedPerson,
 }) {
+  const isLight = document.documentElement.classList.contains("light");
+  const demoMode = true;
+  const demoSectionValues = {
+    IT: 78,
+    امورمالی: 62,
+    "برنامه ریزی": 55,
+    پروژه: 70,
+    تامین: 53,
+    "زنجیره تامین": 66,
+    فروش: 92,
+    مارکتینگ: 58,
+    مدیریت: 84,
+    "منابع انسانی": 72,
+  };
   const [facilitySectionMetrics, setFacilitySectionMetrics] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sectionMetrics, setSectionMetrics] = useState([]);
@@ -775,128 +972,127 @@ function SectionView({
               isLight ? "text-gray-900" : "text-gray-100"
             }`}
           >
-            وضعیت KPI به تفکیک بخش‌ها
+            نمودار دایره‌ای KPI به تفکیک دپارتمان‌ها
           </h3>
           <p
             className={`${isLight ? "text-gray-600" : "text-gray-400"} text-sm`}
           >
-            نمایش تعداد KPI هر بخش در شرکت {facility}
+            نمایش میانگین انجام KPI هر دپارتمان در شرکت {facility}
           </p>
         </div>
 
         {isLoadingSections ? (
           <div className="text-center text-gray-400 py-20">
             <div className="animate-pulse">
-              در حال بارگذاری داده‌های بخش‌ها...
+              در حال بارگذاری داده‌های دپارتمان‌ها...
             </div>
           </div>
         ) : sectionMetrics.length > 0 ? (
           <div dir="rtl">
-            <ResponsiveContainer width="100%" height={450}>
-              <BarChart
-                data={sectionMetrics}
-                margin={{ top: 30, right: 40, left: 30, bottom: 120 }}
-                barCategoryGap="20%"
-              >
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#016630" stopOpacity={1} />
-                    <stop offset="50%" stopColor="#016630" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#016630" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 0"
-                  stroke="#374151"
-                  opacity={0.5}
-                  vertical={true}
-                />
-                <XAxis
-                  dataKey="name"
-                  angle={-90}
-                  textAnchor="center"
-                  height={100}
-                  tick={{
-                    fill: "#e5e7eb",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                  interval={0}
-                  axisLine={{ stroke: "#016630", strokeWidth: 2 }}
-                  tickLine={{ stroke: "#4b5563" }}
-                />
-                <YAxis
-                  tick={{
-                    fill: "#d1d5db",
-                    fontSize: 13,
-                    fontWeight: 500,
-                  }}
-                  axisLine={{ stroke: "#4b5563", strokeWidth: 2 }}
-                  tickLine={{ stroke: "#4b5563" }}
-                  label={{
-                    value: "تعداد KPI",
-                    angle: -90,
-                    position: "insideLeft",
-                    style: {
-                      textAnchor: "middle",
-                      fill: "#e5e7eb",
-                      fontSize: 15,
-                      fontWeight: 700,
-                    },
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1f2937",
-                    border: "2px solid #3b82f6",
-                    borderRadius: "12px",
-                    color: "white",
-                    direction: "rtl",
-                    padding: "16px",
-                    fontSize: "14px",
-                    boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)",
-                  }}
-                  cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
-                  formatter={(value) => [
-                    `${parseInt(value).toLocaleString()} KPI`,
-                    "کل KPI",
-                  ]}
-                  labelFormatter={(label) => `بخش: ${label}`}
-                />
-                <Bar
-                  dataKey="total"
-                  name="total"
-                  fill="url(#barGradient)"
-                  radius={[12, 12, 0, 0]}
-                  animationDuration={1200}
-                  animationEasing="ease-out"
-                >
-                  {sectionMetrics.map((entry, index) => (
-                    <Cell
-                      key={`section-cell-${index}`}
-                      onClick={() => onSelectSection(entry.name)}
-                      style={{
-                        filter: "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (e.target) {
-                          e.target.style.filter =
-                            "drop-shadow(0 6px 12px rgba(1, 102, 48, 0.5)) brightness(1.1)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (e.target) {
-                          e.target.style.filter =
-                            "drop-shadow(0 4px 8px rgba(1, 102, 48, 0.3))";
-                        }
-                      }}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sectionMetrics.map((entry) => {
+                const completionPercent = demoMode
+                  ? demoSectionValues[entry.name] ?? 50
+                  : entry.total > 0
+                  ? Math.round((entry.completed / entry.total) * 100)
+                  : 0;
+                const data = [
+                  {
+                    name: "میانگین",
+                    value: completionPercent,
+                    color: "#22c55e",
+                  },
+                  {
+                    name: "باقیمانده",
+                    value: 100 - completionPercent,
+                    color: isLight ? "#e5e7eb" : "#374151",
+                  },
+                ];
+                return (
+                  <button
+                    type="button"
+                    key={entry.name}
+                    onClick={() => onSelectSection(entry.name)}
+                    className={`rounded-2xl p-4 border transition-all ${
+                      isLight
+                        ? "bg-white/80 border-gray-200 hover:shadow-lg"
+                        : "bg-gray-800/60 border-gray-700 hover:bg-green-700"
+                    }`}
+                  >
+                    <div
+                      className={`text-lg font-bold mb-2 ${
+                        isLight ? "text-gray-900" : "text-gray-100"
+                      }`}
+                    >
+                      {entry.name}
+                    </div>
+                    <div
+                      className={`text-sm mb-4 ${
+                        isLight ? "text-gray-600" : "text-gray-400"
+                      }`}
+                    >
+                      مجموع: {parseInt(entry.total || 0).toLocaleString()} KPI
+                    </div>
+                    <div style={{ height: 220, position: "relative" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            dataKey="value"
+                            paddingAngle={2}
+                            startAngle={90}
+                            endAngle={-270}
+                          >
+                            {data.map((d, i) => (
+                              <Cell key={`section-pie-${i}`} fill={d.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value, name) => [
+                              `${parseInt(value || 0)}`,
+                              name,
+                            ]}
+                            contentStyle={{
+                              backgroundColor: isLight ? "#ffffff" : "#1f2937",
+                              border: `1px solid ${
+                                isLight ? "#e5e7eb" : "#374151"
+                              }`,
+                              borderRadius: "12px",
+                              color: isLight ? "#111827" : "#e5e7eb",
+                              direction: "rtl",
+                              padding: "14px",
+                              fontSize: "14px",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div
+                          className={`text-center ${
+                            isLight ? "text-gray-900" : "text-gray-100"
+                          }`}
+                        >
+                          <div className="text-3xl font-extrabold">
+                            {completionPercent}
+                          </div>
+                          <div
+                            className={`${
+                              isLight ? "text-gray-600" : "text-gray-300"
+                            } text-sm`}
+                          >
+                            میانگین
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <div className="text-center text-gray-400 py-20">
@@ -916,6 +1112,7 @@ function SectionDetailView({
   onSelectPerson,
   metrics,
 }) {
+  const isLight = document.documentElement.classList.contains("light");
   const [selectedRole, setSelectedRole] = useState("");
   const [people, setPeople] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -974,9 +1171,11 @@ function SectionDetailView({
         >
           {section}
         </h2>
-        <p className={`${isLight ? "text-gray-700" : "text-gray-300"}`}>
-          واحد: {facility}
-        </p>
+        {facility ? (
+          <p className={`${isLight ? "text-gray-700" : "text-gray-300"}`}>
+            واحد: {facility}
+          </p>
+        ) : null}
       </div>
 
       {/* Section KPI Status */}
@@ -1094,6 +1293,7 @@ function SectionDetailView({
 }
 
 function PersonDetailView({ facility, section, person, onBack }) {
+  const isLight = document.documentElement.classList.contains("light");
   const [workHistory, setWorkHistory] = useState([]);
   const [personMetrics, setPersonMetrics] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -1189,11 +1389,13 @@ function PersonDetailView({ facility, section, person, onBack }) {
             isLight ? "text-gray-700" : "text-gray-300"
           }`}
         >
+          {facility ? (
+            <div>
+              <span className="text-sm">واحد:</span> {facility}
+            </div>
+          ) : null}
           <div>
-            <span className="text-sm">واحد:</span> {facility}
-          </div>
-          <div>
-            <span className="text-sm">بخش:</span> {section}
+            <span className="text-sm">دپارتمان:</span> {section}
           </div>
         </div>
       </div>

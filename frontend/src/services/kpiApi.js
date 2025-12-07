@@ -13,9 +13,10 @@ const apiClient = axios.create({
 
 // Add token to requests if it exists
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const token =
+    localStorage.getItem("token") || localStorage.getItem("access_token");
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = `Token ${token}`;
   }
   return config;
 });
@@ -73,6 +74,22 @@ export const kpiApi = {
       return response.data.people;
     } catch (error) {
       console.error("Error fetching people by role:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get KPI personnel filtered by departman
+   * @param {string} departman - Department name (e.g., "امورمالی")
+   */
+  fetchPersonelByDepartman: async (departman) => {
+    try {
+      const response = await apiClient.get("/kpi/personel/", {
+        params: { departman },
+      });
+      return response.data.people;
+    } catch (error) {
+      console.error("Error fetching KPI personnel by departman:", error);
       throw error;
     }
   },
@@ -293,15 +310,36 @@ export const kpiApi = {
     outside_department,
   }) => {
     try {
+      const mgr = String(manager || "").trim();
+      const code = String(personal_code || "").trim();
+      const cat = category != null ? String(category) : undefined;
+      const dept = String(departman || "").trim();
+      const nm = Boolean(not_managed) && dept !== "";
+      const od = Boolean(outside_department) && dept !== "";
+
+      if (
+        !mgr &&
+        !code &&
+        (Boolean(not_managed) || Boolean(outside_department))
+      ) {
+        return {
+          status: "no_results",
+          count: 0,
+          tasks: [],
+          debug: { client_sanitized: true },
+        };
+      }
+
+      const params = {};
+      if (mgr) params.manager = mgr;
+      if (code) params.personal_code = code;
+      if (cat !== undefined) params.category = cat;
+      if (dept) params.departman = dept;
+      params.not_managed = nm ? "true" : "false";
+      params.outside_department = od ? "true" : "false";
+
       const response = await apiClient.get("/kpientry/subordinates/", {
-        params: {
-          manager,
-          personal_code,
-          category,
-          departman,
-          not_managed: not_managed ? "true" : "false",
-          outside_department: outside_department ? "true" : "false",
-        },
+        params,
       });
       // Return the full response object so frontend can access debug info
       return response.data;
