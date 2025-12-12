@@ -264,29 +264,36 @@ function KpiDashboard() {
                     {/* Main Pie Chart using departman design */}
                     <div
                       className="relative w-full max-w-lg mx-auto cursor-pointer"
-                      style={{ cursor: "pointer" }}
                       onClick={() => setShowBarChart((prev) => !prev)}
                     >
-                      <ResponsiveContainer width="100%" height={450}>
+                      <ResponsiveContainer
+                        style={{ cursor: "pointer" }}
+                        width="100%"
+                        height={450}
+                      >
                         <PieChart>
                           <Pie
                             data={systemPieData}
                             cx="50%"
                             cy="50%"
-                            innerRadius={80}
+                            innerRadius={100}
                             outerRadius={140}
                             dataKey="value"
                             paddingAngle={2}
                             startAngle={90}
                             endAngle={-270}
+                            labelLine={false}
+                            // label={({ percent }) =>
+                            //   `${Math.round(percent * 100)}%`
+                            // }
                           >
                             {systemPieData.map((d, i) => (
                               <Cell key={`system-pie-${i}`} fill={d.color} />
                             ))}
                           </Pie>
-                          <Tooltip
+                          {/* <Tooltip
                             formatter={(value, name) => [
-                              `${parseInt(value || 0)}`,
+                              `${parseInt(value || 0)}%`,
                               name,
                             ]}
                             contentStyle={{
@@ -300,7 +307,7 @@ function KpiDashboard() {
                               padding: "14px",
                               fontSize: "14px",
                             }}
-                          />
+                          /> */}
                         </PieChart>
                       </ResponsiveContainer>
 
@@ -310,7 +317,7 @@ function KpiDashboard() {
                             isLight ? "text-gray-900" : "text-gray-100"
                           } text-6xl font-extrabold mb-2`}
                         >
-                          {systemCompletionPercent}
+                          {systemCompletionPercent}%
                         </div>
 
                         <div
@@ -480,6 +487,10 @@ function KpiDashboard() {
                                       paddingAngle={2}
                                       startAngle={90}
                                       endAngle={-270}
+                                      labelLine={false}
+                                      // label={({ percent }) =>
+                                      //   `${Math.round(percent * 100)}%`
+                                      // }
                                     >
                                       {data.map((d, i) => (
                                         <Cell
@@ -488,9 +499,9 @@ function KpiDashboard() {
                                         />
                                       ))}
                                     </Pie>
-                                    <Tooltip
+                                    {/* <Tooltip
                                       formatter={(value, name) => [
-                                        `${parseInt(value || 0)}`,
+                                        `${parseInt(value || 0)}%`,
                                         name,
                                       ]}
                                       contentStyle={{
@@ -506,7 +517,7 @@ function KpiDashboard() {
                                         padding: "14px",
                                         fontSize: "14px",
                                       }}
-                                    />
+                                    /> */}
                                   </PieChart>
                                 </ResponsiveContainer>
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -518,7 +529,7 @@ function KpiDashboard() {
                                     }`}
                                   >
                                     <div className="text-3xl font-extrabold">
-                                      {completionPercent}
+                                      {completionPercent}%
                                     </div>
                                     {/* <div
                                       className={`text-sm ${
@@ -1046,6 +1057,10 @@ function SectionView({
                             paddingAngle={2}
                             startAngle={90}
                             endAngle={-270}
+                            labelLine={false}
+                            label={({ percent }) =>
+                              `${Math.round(percent * 100)}%`
+                            }
                           >
                             {data.map((d, i) => (
                               <Cell key={`section-pie-${i}`} fill={d.color} />
@@ -1053,7 +1068,7 @@ function SectionView({
                           </Pie>
                           <Tooltip
                             formatter={(value, name) => [
-                              `${parseInt(value || 0)}`,
+                              `${parseInt(value || 0)}%`,
                               name,
                             ]}
                             contentStyle={{
@@ -1077,7 +1092,7 @@ function SectionView({
                           }`}
                         >
                           <div className="text-3xl font-extrabold">
-                            {completionPercent}
+                            {completionPercent}%
                           </div>
                           <div
                             className={`${

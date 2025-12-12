@@ -502,20 +502,19 @@ const Register = () => {
                 </div>
               </div>
             )}
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                className={`w-full py-3 rounded-lg font-semibold transition-colors ${
-                  isLight
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }`}
-              >
-                Register
-              </button>
-            </div>
           </form>
+        </div>
+        <div className="pt-2 w-full">
+          <button
+            type="submit"
+            className={`w-full py-3 rounded-lg font-semibold transition-colors cursor-pointer ${
+              isLight
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            Register
+          </button>
         </div>
       </div>
     </div>

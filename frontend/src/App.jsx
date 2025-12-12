@@ -38,6 +38,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./pages/Settings";
 import NotificationsPage from "./pages/Notifications";
 import { NotificationsProvider } from "./contexts/NotificationsContext";
+import PMLoginPage from "./pages/PMLoginPage";
+import ResetPassword from "./pages/ResetPassword";
 
 function Logout() {
   localStorage.clear();
@@ -121,6 +123,7 @@ function App() {
               path="/login"
               element={<LoginMainForm onLoginSuccess={handleLoginSuccess} />}
             />
+            <Route path="/pmloginpage" element={<PMLoginPage />} />
             <Route path="/kpioverview" element={<KpiOverview />} />
             <Route path="/register" element={<Register />} />
             <Route path="/adminlogin" element={<AdminLogin />} />
@@ -132,6 +135,7 @@ function App() {
             <Route path="/submitpm" element={<SubmitPM />} />
             <Route path="/pmforms" element={<PmForms />} />
             <Route path="/submitform" element={<SubmitForm />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/kpidashboard"
               element={
